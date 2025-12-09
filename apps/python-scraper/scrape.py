@@ -401,9 +401,10 @@ class TelegramScraper:
         self.config = config
         self.db = Database(config.sqlite_path)
         self.http = HttpClient(config)
-        if not os.path.exists("session"):
+        session_path = os.path.join("..", "..", "session")
+        if not os.path.exists(session_path):
             raise FileNotFoundError("Telegram session file 'session' not found. You need to run setup_session.py first")
-        with open("session", "r") as f:
+        with open(session_path, "r") as f:
             session_value = f.read().strip()
         self.client = TelegramClient(StringSession(session_value), config.api_id, config.api_hash)
         self.scheduler = AsyncIOScheduler()
@@ -443,11 +444,12 @@ class TelegramScraper:
         )
         print("Event handler registered")
         
-        # Run initial catch-up to process any missed messages
-        await self._catch_up_all_channels()
-        
         # Set up polling scheduler
         await self._setup_scheduler()
+        
+        await asyncio.sleep(10)
+        # Run initial catch-up to process any missed messages
+        await self._catch_up_all_channels()
         
         print("Scraper started successfully")
     
@@ -763,12 +765,17 @@ class TelegramScraper:
         else:
             print(f"Catching up channel {telegram_url} (id={telegram_id}, min_id={min_id})")
 
+        # Extract username from URL to use with Telethon
+        # Telethon needs either a username or a resolved entity, not just the numeric ID
+        username_match = re.search(r't\.me/([a-zA-Z0-9_]+)', telegram_url)
+        entity_ref = username_match.group(1) if username_match else telegram_id
+
         try:
             # Fetch messages newest first, then reverse for chronological order
             messages = []
 
             async for message in self.client.iter_messages(
-                telegram_id,
+                entity_ref,
                 min_id=min_id,
                 offset_date=offset_date,
                 reverse=False  # Newest first (default)

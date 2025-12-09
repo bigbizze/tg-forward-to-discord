@@ -23,6 +23,9 @@ import {
 } from "@tg-discord/result";
 import type { DiscordWebhookMessage, TelegramMessage } from "@tg-discord/shared-types";
 
+
+export const lineSeparator = "-# ~~---------------------~~";
+
 type RateLimiter = limiter.RateLimiter;
 
 /**
@@ -219,7 +222,9 @@ export function formatTelegramMessageForDiscord(
     embed.fields = [
       {
         name: "",
-        value: "\n~~---------------------~~\n",
+        value: `
+${lineSeparator}
+`,
         inline: false
       },
       {

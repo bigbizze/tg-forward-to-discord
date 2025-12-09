@@ -239,10 +239,10 @@ jobs:
             mkdir -p apps/python-scraper
             
             # Write the session file content
-            echo "$TELEGRAM_SESSION" > apps/python-scraper/session
+            echo "$TELEGRAM_SESSION" > session
             
             # Secure the session file (only owner can read/write)
-            chmod 600 apps/python-scraper/session
+            chmod 600 session
             
             echo "✓ Telegram session file created and secured"
           else
@@ -252,7 +252,7 @@ jobs:
             echo "To fix this:"
             echo "1. Go to GitHub repository → Settings → Secrets and variables → Actions"
             echo "2. Add a new secret named 'TELEGRAM_SESSION'"
-            echo "3. Copy the content of your local apps/python-scraper/session file"
+            echo "3. Copy the content of your local session file"
             echo "4. Paste it as the secret value"
             echo "5. Re-run this deployment"
             echo ""

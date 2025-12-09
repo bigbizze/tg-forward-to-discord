@@ -245,6 +245,9 @@ pm2 save --force
 
 log_info "✓ PM2 services configured"
 
+log_info "Archiving old logs..."
+pnpm logs:archive
+
 # =============================================================================
 # Final status
 # =============================================================================

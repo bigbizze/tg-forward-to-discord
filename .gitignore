@@ -62,4 +62,4 @@ coverage/
 tmp/
 temp/
 
-apps/python-scraper/session
+session

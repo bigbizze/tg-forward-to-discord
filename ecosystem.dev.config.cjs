@@ -13,6 +13,12 @@ const shared = {
 module.exports = {
   apps: [
     {
+      name: 'packages-watch',
+      args: '-F "./packages/*" --parallel -r dev',
+      out_file: '/dev/null',
+      error_file: '/dev/null',
+    },
+    {
       name: 'discord-bot',
       args: '-F @tg-discord/discord-bot dev',
       error_file: 'logs/discord-bot-error.log',

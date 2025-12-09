@@ -11,7 +11,7 @@ async def main():
     session = client.session.save()
     assert session is not None
     assert isinstance(session, str)
-    with open("session", "w") as f:
+    with open(os.path.join("..", "..", "session"), "w") as f:
         f.write(session.strip())
     
 

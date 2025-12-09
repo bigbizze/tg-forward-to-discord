@@ -35,6 +35,7 @@ import {
   ConfigPostRequestSchema,
   ConfigPostResponseSchema
 } from "@tg-discord/shared-types";
+import { lineSeparator } from "@tg-discord/discord-webhook";
 
 process.on("uncaughtException", async (error) => {
   console.error("Uncaught exception:", error);
@@ -305,6 +306,10 @@ async function getCachedConfig(config: ReturnType<typeof getConfig>): Promise<Co
   return data;
 }
 
+function invalidateConfigCache(): void {
+  configCache = null;
+}
+
 // ============================================================================
 // Autocomplete Handlers
 // ============================================================================
@@ -479,7 +484,7 @@ async function handleShowCommand(
 
     response += `
 
-~~---------------------~~
+${lineSeparator}
 
 `;
 
@@ -614,13 +619,13 @@ async function handleAddCommand(
     });
 
     // Build response message
-    let responseContent = `✅ Successfully subscribed **<#${channel.id}>** to:\n${newUrls.map(url => `${newUrls.length > 1 ? "  • " : ""}${url.url} - *${url.username}*`).join("\n")}\n\nGroup ID: \`${groupId}\`\\n\\n~~---------------------~~\\n\\n`;
+    let responseContent = `✅ Successfully subscribed **<#${channel.id}>** to:\n${newUrls.map(url => `${newUrls.length > 1 ? "  • " : ""}${url.url} - *${url.username}*`).join("\n")}\n\nGroup ID: \`${groupId}\`\\n\\n${lineSeparator}\\n\\n`;
 
     // Mention skipped URLs if any
     if (alreadySubscribed.length > 0) {
       responseContent += `\n\n⚠️ Skipped (already subscribed):\n${alreadySubscribed.map(({ url }) => `  • ${url}`).join("\n")}
 
-~~---------------------~~
+${lineSeparator}
 
 `;
     }
@@ -663,7 +668,7 @@ async function handleRemoveCommand(
       await interaction.editReply({
         content: `❌ Invalid Telegram URL: ${telegramUrl} (${reason})
 
-~~---------------------~~
+${lineSeparator}
 
 `
       });
@@ -694,10 +699,13 @@ async function handleRemoveCommand(
       }
     });
 
+    // Invalidate cache so autocomplete reflects the removal immediately
+    invalidateConfigCache();
+
     await interaction.editReply({
       content: `✅ Successfully unsubscribed **<#${channel.id}>** from:\n  • ${validatedUrl}
 
-~~---------------------~~
+${lineSeparator}
 
 `
     });
@@ -843,11 +851,19 @@ async function main() {
       });
 
       // Try to respond if we haven't already
-      if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({
-          content: "An error occurred while processing the command.",
-          ephemeral: true
-        });
+      try {
+        if (interaction.deferred && !interaction.replied) {
+          await interaction.editReply({
+            content: "An error occurred while processing the command."
+          });
+        } else if (!interaction.replied) {
+          await interaction.reply({
+            content: "An error occurred while processing the command.",
+            ephemeral: true
+          });
+        }
+      } catch {
+        // Interaction may have expired or already been handled, ignore
       }
     }
   });
