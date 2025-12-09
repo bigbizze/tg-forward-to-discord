@@ -1,0 +1,36 @@
+{
+  "name": "tg-discord",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "type": "module",
+  "scripts": {
+    "setup": "chmod +x scripts/idempotent-setup.sh && ./scripts/idempotent-setup.sh",
+    "start": "pnpm build && pnpm -F './apps/*' -r --parallel start",
+    "build": "pnpm build:packages && pnpm build:apps",
+    "build:packages": "pnpm -F './packages/*' -r --sequential build",
+    "build:apps": "pnpm -F './apps/*' -r --parallel build",
+    "build:clean": "pnpm store prune && pnpm -r --sequential run clean",
+    "build:db": "pnpm -F @tg-discord/db-setup build && node packages/db-setup/dist/index.js",
+    "lint": "pnpm -r --parallel lint",
+    "lint:fix": "pnpm -r --parallel lint:fix",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "dev": "pnpm build:packages && pnpx concurrently -n bot,server,scraper -c blue,green,yellow \"pnpm -F @tg-discord/discord-bot dev\" \"pnpm -F @tg-discord/express-server dev\" \"pnpm -F @tg-discord/python-scraper dev\"",
+    "dev:ts": "pnpm build:packages && pnpx concurrently -n bot,server -c blue,green \"pnpm -F @tg-discord/discord-bot dev\" \"pnpm -F @tg-discord/express-server dev\"",
+    "dev:python": "pnpm -F @tg-discord/python-scraper dev"
+  },
+  "devDependencies": {
+    "jiti": "^2.6.1",
+    "@stylistic/eslint-plugin": "^2.6.0",
+    "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "concurrently": "^9.0.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-import-newlines": "^1.4.0",
+    "eslint-plugin-unused-imports": "^4.0.0",
+    "globals": "^15.0.0",
+    "rimraf": "^6.0.0",
+    "typescript": "^5.6.0",
+    "@typescript/native-preview": "^7.0.0-dev.20251121.1"
+  }
+}

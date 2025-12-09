@@ -1,0 +1,26 @@
+{
+  "name": "@tg-discord/discord-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "start": "node ./dist/index.js",
+    "build": "tsgo -b",
+    "typecheck": "tsgo --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "dev2": "",
+    "dev:run": "pnpx nodemon --ext ts --watch src --watch ../../packages --exec \"pnpx tsx\" src/index.ts",
+    "dev:watch": "tsgo -b --watch --preserveWatchOutput",
+    "dev": "pnpx concurrently \"pnpm dev:run\" \"pnpm dev:watch\"",
+    "clean": "pnpx rimraf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@tg-discord/config": "workspace:*",
+    "@tg-discord/discord-webhook": "workspace:*",
+    "@tg-discord/shared-types": "workspace:*",
+    "discord.js": "^14.16.0",
+    "dotenv": "^16.0.0"
+  }
+}

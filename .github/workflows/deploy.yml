@@ -1,0 +1,72 @@
+# GitHub Actions Deployment Workflow
+#
+# This workflow deploys the application to a remote server when code is pushed
+# to the master branch. It SSHs into the server and runs the idempotent setup
+# script.
+#
+# Required Secrets (configure in GitHub repo settings):
+# - SSH_HOST: Server IP address or hostname
+# - SSH_USER: SSH username (e.g., ubuntu)
+# - SSH_PRIVATE_KEY: SSH private key for authentication
+# - SSH_PORT: SSH port (optional, defaults to 22)
+#
+# The server should have:
+# - The repository cloned at ~/tg-discord (or adjust the path below)
+# - SSH access configured with the provided key
+# - sudo access for package installation (first run only)
+
+name: Deploy
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  # Allow manual trigger from GitHub UI
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script_stop: true
+          script: |
+            echo "=== Starting deployment ==="
+            echo "Server: $(hostname)"
+            echo "User: $(whoami)"
+            echo "Date: $(date)"
+            echo ""
+            
+            # Navigate to project directory
+            cd ~/tg-discord || {
+              echo "Error: Project directory not found at ~/tg-discord"
+              echo "Please clone the repository first:"
+              echo "  git clone <repo-url> ~/tg-discord"
+              exit 1
+            }
+            
+            # Run the idempotent setup script
+            echo "Running setup script..."
+            ./scripts/idempotent-setup.sh
+            
+            echo ""
+            echo "=== Deployment complete ==="
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Deployment failed!"
+          echo "Check the logs above for details."
+          exit 1

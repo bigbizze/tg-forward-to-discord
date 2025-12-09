@@ -1,0 +1,36 @@
+{
+  "name": "@tg-discord/discord-webhook",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsgo -b",
+    "typecheck": "tsgo --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "dev": "tsgo -b --watch --preserveWatchOutput",
+    "clean": "pnpx rimraf dist tsconfig.tsbuildinfo"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "dependencies": {
+    "@tg-discord/result": "workspace:*",
+    "@tg-discord/shared-types": "workspace:*",
+    "async-retry": "^1.3.3",
+    "limiter": "^2.1.0"
+  },
+  "devDependencies": {
+    "@types/async-retry": "^1.4.8"
+  }
+}

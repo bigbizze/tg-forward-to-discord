@@ -1,0 +1,15 @@
+{
+  "name": "@tg-discord/python-scraper",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "echo 'No build step required for Python'",
+    "lint": "echo 'Python linting not configured'",
+    "lint:fix": "echo 'Python linting not configured'",
+    "dev": ". .venv/bin/activate && pnpx nodemon --watch scrape.py --ext py --exec \"python -u scrape.py\" scrape.py",
+    "start": ". .venv/bin/activate && python -u scrape.py",
+    "venv:create": "python3 -m venv .venv",
+    "venv:install": ". .venv/bin/activate && pip install -r requirements.txt",
+    "postinstall": "pnpm venv:create && pnpm venv:install"
+  }
+}

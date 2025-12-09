@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "composite": true
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ],
+  "references": [
+    { "path": "../../packages/result" },
+    { "path": "../../packages/config" },
+    { "path": "../../packages/shared-types" },
+    { "path": "../../packages/db" },
+    { "path": "../../packages/discord-webhook" }
+  ]
+}

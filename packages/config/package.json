@@ -1,0 +1,33 @@
+{
+  "name": "@tg-discord/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsgo -b",
+    "typecheck": "tsgo --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "dev": "tsgo -b --watch --preserveWatchOutput",
+    "clean": "pnpx rimraf dist tsconfig.tsbuildinfo"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "dependencies": {
+    "app-root-path": "^3.1.0",
+    "@tg-discord/result": "workspace:*",
+    "dotenv": "^17.2.3",
+    "zod": "^3.23.0"
+  }
+}

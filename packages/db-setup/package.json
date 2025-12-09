@@ -1,0 +1,39 @@
+{
+  "name": "@tg-discord/db-setup",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "db-setup": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsgo -b",
+    "typecheck": "tsgo --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "dev": "tsgo -b --watch --preserveWatchOutput",
+    "clean": "pnpx rimraf dist tsconfig.tsbuildinfo",
+    "setup": "node ./dist/index.js",
+    "reset": "node ./dist/index.js --reset"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@tg-discord/config": "workspace:*",
+    "better-sqlite3": "^11.0.0",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0"
+  }
+}
