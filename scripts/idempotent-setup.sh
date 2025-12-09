@@ -232,19 +232,13 @@ if [ ! -f "$PM2_CONFIG" ]; then
     exit 1
 fi
 
-# Check if processes are already running
-if pm2 list | grep -q "express-server\|discord-bot\|python-scraper"; then
-    if [ "$NEEDS_RESTART" = true ]; then
-        log_info "Restarting existing PM2 processes..."
-        pm2 restart ecosystem.config.cjs
-    else
-        log_info "PM2 processes already running, no restart needed"
-    fi
-else
-    log_info "Starting PM2 processes..."
-    pm2 start ecosystem.config.cjs
-    NEEDS_RESTART=true
-fi
+# Always stop and start to pick up config changes
+# pm2 restart doesn't reload the ecosystem config, only restarts existing processes
+log_info "Stopping existing PM2 processes (if any)..."
+pm2 delete all 2>/dev/null || true
+
+log_info "Starting PM2 processes..."
+pm2 start ecosystem.config.cjs
 
 # Save PM2 process list
 pm2 save --force

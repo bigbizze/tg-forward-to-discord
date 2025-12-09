@@ -19,7 +19,7 @@
     "dev:pm2": "pnpm dev:kill-all && pnpm build:packages && pnpx pm2 start ecosystem.dev.config.cjs --no-daemon --log-date-format 'YYYY-MM-DD HH:mm:ss Z'",
     "dev:setup:db": "pnpm -F @tg-discord/db-setup build && node packages/db-setup/dist/index.js",
     "dev:kill-all": "pnpm dev:kill-pm2 && pnpm run kill-proc 'nodemon' 'tsgo' 'tsc' 'concurrently' 'python -u scrape.py' 'pm2' 'tsx'",
-    "dev:kill-pm2": "pnpx pm2 kill && rm -f ~/.pm2/logs/*output.log && rm -f ~/.pm2/logs/*error.log",
+    "dev:kill-pm2": "pnpx pm2 kill && rm -f logs/*output.log && rm -f logs/*error.log",
     "kill-proc": "chmod +x scripts/kill-proc.sh && ./scripts/kill-proc.sh",
     "infra:setup": "pnpm -F @tg-discord/infra up"
   },
