@@ -16,8 +16,15 @@
     "dev": "pnpm build:packages && pnpx concurrently -n bot,server,scraper -c blue,green,yellow \"pnpm -F @tg-discord/discord-bot dev\" \"pnpm -F @tg-discord/express-server dev\" \"pnpm -F @tg-discord/python-scraper dev\"",
     "dev:only:ts": "pnpm build:packages && pnpx concurrently -n bot,server -c blue,green \"pnpm -F @tg-discord/discord-bot dev\" \"pnpm -F @tg-discord/express-server dev\"",
     "dev:only:python": "pnpm -F @tg-discord/python-scraper dev",
+    "dev:pm2": "pnpm dev:kill-all && pnpm build:packages && pnpx pm2 start ecosystem.dev.config.cjs --no-daemon --log-date-format 'YYYY-MM-DD HH:mm:ss Z'",
     "dev:setup:db": "pnpm -F @tg-discord/db-setup build && node packages/db-setup/dist/index.js",
+    "dev:kill-all": "pnpm dev:kill-pm2 && pnpm run kill-proc 'nodemon' 'tsgo' 'tsc' 'concurrently' 'python -u scrape.py' 'pm2' 'tsx'",
+    "dev:kill-pm2": "pnpx pm2 kill && rm -f ~/.pm2/logs/*output.log && rm -f ~/.pm2/logs/*error.log",
+    "kill-proc": "chmod +x scripts/kill-proc.sh && ./scripts/kill-proc.sh",
     "infra:setup": "pnpm -F @tg-discord/infra up"
+  },
+  "dependencies": {
+    "app-root-path": "^3.1.0"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "^2.6.0",
