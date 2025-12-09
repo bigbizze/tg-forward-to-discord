@@ -60,9 +60,10 @@ const startServer = () => {
     res.write('data: {"type":"connected","message":"Connected to log stream"}\n\n');
 
     // Spawn pm2 logs process
-    const pm2Logs = spawn("pnpm", [ "get-logs" ], {
+    const pm2Logs = spawn("pnpm", [ "-F @tg-discord/log-dashboard get-logs" ], {
       env: { ...process.env, PM2_HOME: process.env.HOME + "/.pm2" },
-      shell: true
+      shell: true,
+      cwd: appRootPath.path
     });
 
     // Stream stdout

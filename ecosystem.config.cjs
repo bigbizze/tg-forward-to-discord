@@ -33,7 +33,7 @@ module.exports = {
     {
       name: 'python-scraper',
       script: './apps/python-scraper/.venv/bin/python',
-      args: './apps/python-scraper/src/main.py',
+      args: './apps/python-scraper/scrape.py',
       interpreter: 'none',
       exec_mode: 'fork',
       env: {
