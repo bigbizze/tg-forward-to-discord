@@ -32,6 +32,7 @@ import {
   markForwardSuccess,
   markForwardError,
   getDiscordWebhookById,
+  deactivateDiscordWebhookById,
   updateMsgCursor
 } from "@tg-discord/db";
 import { getConfig, getLogUrl } from "@tg-discord/config";
@@ -197,6 +198,33 @@ async function processPendingForward(
     // All retries failed - mark as error
     const errorMessage = error instanceof Error ? error.message : String(error);
 
+    // Check if this is a 404 "Unknown Webhook" error - webhook was deleted from Discord
+    const is404Error = errorMessage.includes("404") || errorMessage.includes("Unknown Webhook");
+    if (is404Error) {
+      console.log(`Webhook ${forward.discordWebhookId} returned 404 - deactivating in database`);
+      const deactivateResult = deactivateDiscordWebhookById(forward.discordWebhookId);
+      if (!deactivateResult.ok) {
+        console.error(`Failed to deactivate webhook ${forward.discordWebhookId}:`, deactivateResult.error);
+        await sendErrorLog(
+          deactivateResult.error,
+          "processPendingForward:deactivateWebhook",
+          { webhookId: forward.discordWebhookId, subscriptionGroupId: forward.subscriptionGroupId }
+        );
+      } else if (deactivateResult.value) {
+        console.log(`Deactivated webhook ${forward.discordWebhookId} (subscription_group: ${forward.subscriptionGroupId})`);
+        await sendErrorLog(
+          new Error("Webhook deactivated due to 404 error"),
+          "processPendingForward:webhookDeactivated",
+          {
+            webhookId: forward.discordWebhookId,
+            subscriptionGroupId: forward.subscriptionGroupId,
+            discordChannelId: forward.discordChannelId,
+            originalError: errorMessage
+          }
+        );
+      }
+    }
+
     const errorResult = markForwardError(forward.forwardId, errorMessage);
     if (!errorResult.ok) {
       // DB inconsistency - forward failed but we can't track it
@@ -208,17 +236,19 @@ async function processPendingForward(
       );
     }
 
-    // Send error log
-    await sendErrorLog(
-      error instanceof Error ? error : new Error(errorMessage),
-      "processPendingForward:send",
-      {
-        forwardId: forward.forwardId,
-        tgExtMsgId: forward.tgExtMsgId,
-        webhookId: forward.discordWebhookId,
-        subscriptionGroupId: forward.subscriptionGroupId
-      }
-    );
+    // Send error log (skip if we already logged deactivation)
+    if (!is404Error) {
+      await sendErrorLog(
+        error instanceof Error ? error : new Error(errorMessage),
+        "processPendingForward:send",
+        {
+          forwardId: forward.forwardId,
+          tgExtMsgId: forward.tgExtMsgId,
+          webhookId: forward.discordWebhookId,
+          subscriptionGroupId: forward.subscriptionGroupId
+        }
+      );
+    }
 
     console.error(`Failed to forward message ${forward.tgExtMsgId} after all retries:`, errorMessage);
     return false;

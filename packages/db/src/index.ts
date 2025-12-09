@@ -39,6 +39,7 @@ export {
   getDiscordWebhook,
   createOrActivateDiscordWebhook,
   deactivateDiscordWebhook,
+  deactivateDiscordWebhookById,
   getDiscordWebhookById,
   getGroupedActiveSubscriptions,
   type GroupedSubscription

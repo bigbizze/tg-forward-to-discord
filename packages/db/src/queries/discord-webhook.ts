@@ -1,6 +1,6 @@
 /**
  * Discord Webhook Queries
- * 
+ *
  * Database operations for the discord_webhook table.
  * This table stores webhook subscriptions that link Discord channels
  * to Telegram channels via the telegram_channel table.
@@ -23,7 +23,7 @@ import { getConnection, nowUtc } from "../connection.js";
 export function getActiveDiscordWebhooks(): Result<DiscordWebhook[], AppError> {
   const connResult = getConnection();
   if (!connResult.ok) return connResult;
-  
+
   try {
     const db = connResult.value;
     const rows = db.prepare(`
@@ -41,13 +41,13 @@ export function getActiveDiscordWebhooks(): Result<DiscordWebhook[], AppError> {
       created_at: string;
       updated_at: string;
     }>;
-    
+
     // Convert is_active from SQLite integer to boolean
     const webhooks: DiscordWebhook[] = rows.map(row => ({
       ...row,
       is_active: row.is_active === 1
     }));
-    
+
     return ok(webhooks);
   } catch (error) {
     return err(appErrorFromException(
@@ -66,7 +66,7 @@ export function getDiscordWebhooksByGroup(
 ): Result<DiscordWebhook[], AppError> {
   const connResult = getConnection();
   if (!connResult.ok) return connResult;
-  
+
   try {
     const db = connResult.value;
     const rows = db.prepare(`
@@ -84,12 +84,12 @@ export function getDiscordWebhooksByGroup(
       created_at: string;
       updated_at: string;
     }>;
-    
+
     const webhooks: DiscordWebhook[] = rows.map(row => ({
       ...row,
       is_active: row.is_active === 1
     }));
-    
+
     return ok(webhooks);
   } catch (error) {
     return err(appErrorFromException(
@@ -109,7 +109,7 @@ export function getWebhooksForTelegramChannel(
 ): Result<DiscordWebhook[], AppError> {
   const connResult = getConnection();
   if (!connResult.ok) return connResult;
-  
+
   try {
     const db = connResult.value;
     const rows = db.prepare(`
@@ -127,12 +127,12 @@ export function getWebhooksForTelegramChannel(
       created_at: string;
       updated_at: string;
     }>;
-    
+
     const webhooks: DiscordWebhook[] = rows.map(row => ({
       ...row,
       is_active: row.is_active === 1
     }));
-    
+
     return ok(webhooks);
   } catch (error) {
     return err(appErrorFromException(
@@ -152,7 +152,7 @@ export function getDiscordWebhook(
 ): Result<DiscordWebhook | null, AppError> {
   const connResult = getConnection();
   if (!connResult.ok) return connResult;
-  
+
   try {
     const db = connResult.value;
     const row = db.prepare(`
@@ -170,11 +170,11 @@ export function getDiscordWebhook(
       created_at: string;
       updated_at: string;
     } | undefined;
-    
+
     if (!row) {
       return ok(null);
     }
-    
+
     return ok({
       ...row,
       is_active: row.is_active === 1
@@ -291,23 +291,54 @@ export function deactivateDiscordWebhook(
 ): Result<boolean, AppError> {
   const connResult = getConnection();
   if (!connResult.ok) return connResult;
-  
+
   try {
     const db = connResult.value;
     const now = nowUtc();
-    
+
     const result = db.prepare(`
       UPDATE discord_webhook
       SET is_active = 0, updated_at = ?
       WHERE subscription_group_id = ? AND telegram_channel_id = ? AND is_active = 1
     `).run(now, subscriptionGroupId, telegramChannelId);
-    
+
     return ok(result.changes > 0);
   } catch (error) {
     return err(appErrorFromException(
       error,
       ErrorCodes.DB_QUERY_ERROR,
       "Failed to deactivate discord webhook"
+    ));
+  }
+}
+
+/**
+ * Deactivates (soft delete) a discord webhook by its ID.
+ * Used when a webhook returns 404 (deleted from Discord).
+ * Returns true if a subscription was deactivated, false if not found.
+ */
+export function deactivateDiscordWebhookById(
+  webhookId: number
+): Result<boolean, AppError> {
+  const connResult = getConnection();
+  if (!connResult.ok) return connResult;
+
+  try {
+    const db = connResult.value;
+    const now = nowUtc();
+
+    const result = db.prepare(`
+      UPDATE discord_webhook
+      SET is_active = 0, updated_at = ?
+      WHERE id = ? AND is_active = 1
+    `).run(now, webhookId);
+
+    return ok(result.changes > 0);
+  } catch (error) {
+    return err(appErrorFromException(
+      error,
+      ErrorCodes.DB_QUERY_ERROR,
+      "Failed to deactivate discord webhook by ID"
     ));
   }
 }
@@ -320,7 +351,7 @@ export function getDiscordWebhookById(
 ): Result<DiscordWebhook | null, AppError> {
   const connResult = getConnection();
   if (!connResult.ok) return connResult;
-  
+
   try {
     const db = connResult.value;
     const row = db.prepare(`
@@ -338,11 +369,11 @@ export function getDiscordWebhookById(
       created_at: string;
       updated_at: string;
     } | undefined;
-    
+
     if (!row) {
       return ok(null);
     }
-    
+
     return ok({
       ...row,
       is_active: row.is_active === 1

@@ -188,8 +188,8 @@ VALUES (1, '*/10 * * * *', datetime('now'), datetime('now'));
 const MIGRATIONS = [
   {
     name: "Add discord_channel_info_id to discord_webhook",
-    check: `SELECT COUNT(*) as count FROM pragma_table_info('discord_webhook') WHERE name='discord_channel_info_id'`,
-    migrate: `ALTER TABLE discord_webhook ADD COLUMN discord_channel_info_id INTEGER REFERENCES discord_channel_info(id) ON DELETE SET NULL`
+    check: "SELECT COUNT(*) as count FROM pragma_table_info('discord_webhook') WHERE name='discord_channel_info_id'",
+    migrate: "ALTER TABLE discord_webhook ADD COLUMN discord_channel_info_id INTEGER REFERENCES discord_channel_info(id) ON DELETE SET NULL"
   }
 ];
 

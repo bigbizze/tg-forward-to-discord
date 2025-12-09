@@ -16,6 +16,7 @@
     }
   },
   "scripts": {
+    "start": "pnpx tsx src/index.ts",
     "build": "tsgo -b",
     "typecheck": "tsgo --noEmit",
     "lint": "eslint .",

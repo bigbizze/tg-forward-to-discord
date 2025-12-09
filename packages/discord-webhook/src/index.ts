@@ -110,11 +110,24 @@ export async function getWebhookChannelAndServerId(webhookUrl: string): Promise<
 
 
 /**
+ * Custom error class for webhook errors that includes the HTTP status code.
+ */
+export class WebhookError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number
+  ) {
+    super(message);
+    this.name = "WebhookError";
+  }
+}
+
+/**
  * Posts a message to a Discord webhook with rate limiting and retry logic.
  *
  * @param webhookUrl - The Discord webhook URL
  * @param message - The message payload to send
- * @returns Result indicating success or error
+ * @returns Result indicating success or error (error includes status code for 4xx errors)
  */
 export async function postToDiscordWebhook(
   webhookUrl: string,
@@ -150,15 +163,15 @@ export async function postToDiscordWebhook(
         // Handle permanent errors (don't retry these)
         if (response.status === 401 || response.status === 403 || response.status === 404) {
           const errorText = await response.text();
-          // bail() prevents further retries
-          bail(new Error(`Discord webhook error ${response.status}: ${errorText}`));
+          // bail() prevents further retries - use WebhookError to preserve status
+          bail(new WebhookError(`Discord webhook error ${response.status}: ${errorText}`, response.status));
           return;
         }
 
         // Handle other errors
         if (!response.ok) {
           const errorText = await response.text();
-          throw new Error(`Discord webhook error ${response.status}: ${errorText}`);
+          throw new WebhookError(`Discord webhook error ${response.status}: ${errorText}`, response.status);
         }
       },
       {
@@ -175,11 +188,16 @@ export async function postToDiscordWebhook(
 
     return ok(undefined);
   } catch (error) {
-    return err(appErrorFromException(
+    const appError = appErrorFromException(
       error,
       ErrorCodes.DISCORD_WEBHOOK_ERROR,
       "Failed to post to Discord webhook after retries"
-    ));
+    );
+    // Preserve the HTTP status code in details if it's a WebhookError
+    if (error instanceof WebhookError) {
+      appError.details = { ...appError.details, httpStatus: error.status };
+    }
+    return err(appError);
   }
 }
 
