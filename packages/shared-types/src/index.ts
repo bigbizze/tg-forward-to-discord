@@ -38,8 +38,8 @@ export const DiscordSetupSchema = z.object({
     .string()
     .min(1, "subscription_group_id is required")
     .regex(
-      /^[a-zA-Z0-9]+$/,
-      "subscription_group_id must contain only letters and numbers (no spaces, dashes, or special characters)"
+      /^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$/,
+      "subscription_group_id must contain only letters, numbers, and dashes (format: groupname-channelid)"
     )
     .transform((val) => val.toLowerCase()),
   description: z

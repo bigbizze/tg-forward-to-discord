@@ -25,7 +25,9 @@ import {
   type ChatInputCommandInteraction,
   type AutocompleteInteraction,
   ChannelType,
-  MessageFlags
+  MessageFlags,
+  type Webhook,
+  WebhookType
 } from "discord.js";
 import { getConfig, getConfigUrl, getLogUrl } from "@tg-discord/config";
 import {
@@ -517,7 +519,9 @@ async function handleAddCommand(
       throw new Error("Channel name is required to determine group ID.");
     }
     const telegramUrlsRaw = interaction.options.getString("telegram_urls", true);
-    const groupId = interaction.options.getString("group_id") || channel.name.toLowerCase().replace(/[^a-z0-9\-]/g, "");
+    // User provides just the group name (defaults to channel name), we append the channel ID
+    const groupName = interaction.options.getString("group_id") || channel.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const subscriptionGroupId = `${groupName}-${channel.id}`;
     const webhookUrl = interaction.options.getString("webhook_url");
 
     // Parse the telegram URLs
@@ -526,7 +530,7 @@ async function handleAddCommand(
 
     if (invalidUrls.length > 0) {
       await interaction.editReply({
-        content: `❌ Invalid Telegram URLs: \n${invalidUrls.map(url => `  • ${url.url} (${url.invalidReason})`).join("\n")}\n\n##########\n\n`
+        content: `❌ Invalid Telegram URLs: \n${invalidUrls.map(url => `  • ${url.url} (${url.invalidReason})`).join("\n")}\n\n${lineSeparator}\n\n`
       });
       return;
     }
@@ -559,7 +563,7 @@ async function handleAddCommand(
     if (newUrls.length === 0) {
       const alreadyList = alreadySubscribed.map(({ url }) => `  • ${url}`).join("\n");
       await interaction.editReply({
-        content: `❌ **#${channel.name}** is already subscribed to ${alreadySubscribed.length === 1 ? "this Telegram channel" : "all these Telegram channels"}:\n${alreadyList}\n\n##########\n\n`
+        content: `❌ **#${channel.name}** is already subscribed to ${alreadySubscribed.length === 1 ? "this Telegram channel" : "all these Telegram channels"}:\n${alreadyList}\n\n${lineSeparator}\n\n`
       });
       return;
     }
@@ -567,7 +571,8 @@ async function handleAddCommand(
     // If no webhook URL provided, we need to find or create one
     let finalWebhookUrl = webhookUrl;
     if (!finalWebhookUrl) {
-      const webhookName = `Telegram Bridge - ${groupId}`;
+      const webhookName = `Telegram Bridge - ${groupName}`;
+      const avatarUrl = "https://i.imgur.com/oXLwUdP.jpeg";
       try {
         const textChannel = await interaction.guild?.channels.fetch(channel.id);
         if (textChannel && textChannel.type === ChannelType.GuildText) {
@@ -575,29 +580,37 @@ async function handleAddCommand(
           const existingWebhooks = await textChannel.fetchWebhooks();
           const matchingWebhooks = existingWebhooks.filter(wh => wh.name === webhookName);
 
+          let webhookToKeep: Webhook<WebhookType.Incoming | WebhookType.ChannelFollower> | undefined = undefined;
+
           if (matchingWebhooks.size > 0) {
-            // Sort by createdAt (oldest first) and keep the oldest one
+            // Sort by createdAt (oldest first)
             const sortedWebhooks = [ ...matchingWebhooks.values() ].sort(
               (a, b) => (a.createdTimestamp ?? 0) - (b.createdTimestamp ?? 0)
             );
-            const webhookToKeep = sortedWebhooks[0];
-            finalWebhookUrl = webhookToKeep.url;
 
-            // Delete duplicate webhooks (keep only the oldest)
-            if (sortedWebhooks.length > 1) {
-              for (const duplicateWebhook of sortedWebhooks.slice(1)) {
-                try {
-                  await duplicateWebhook.delete("Removing duplicate Telegram Bridge webhook");
-                } catch {
-                  // Ignore deletion errors
-                }
+            // Find a webhook with matching avatar (avatarURL() returns the full URL)
+            webhookToKeep = sortedWebhooks.find(wh => wh.avatarURL() === avatarUrl);
+
+            // Delete all webhooks that we're not keeping
+            for (const webhook of sortedWebhooks) {
+              if (webhookToKeep && webhook.id === webhookToKeep.id) {
+                continue; // Skip the one we're keeping
+              }
+              try {
+                await webhook.delete("Removing duplicate/outdated Telegram Bridge webhook");
+              } catch {
+                // Ignore deletion errors
               }
             }
+          }
+
+          if (webhookToKeep) {
+            finalWebhookUrl = webhookToKeep.url;
           } else {
-            // No existing webhook found, create a new one
+            // No valid webhook found, create a new one
             const webhook = await textChannel.createWebhook({
               name: webhookName,
-              avatar: "https://i.imgur.com/oXLwUdP.jpeg",
+              avatar: avatarUrl,
               reason: "Created by Telegram Bridge Bot"
             });
             finalWebhookUrl = webhook.url;
@@ -631,7 +644,7 @@ async function handleAddCommand(
     // Send the update to the Express server with discord channel info
     await updateConfig(config, {
       discord_setup: {
-        subscription_group_id: groupId,
+        subscription_group_id: subscriptionGroupId,
         description: `Subscriptions for #${channel.name}`,
         discord_webhook_url: finalWebhookUrl,
         discord_channel_info: {
@@ -686,7 +699,8 @@ async function handleRemoveCommand(
       throw new Error("Channel name is required to determine group ID.");
     }
     const telegramUrl = interaction.options.getString("telegram_url", true);
-    const groupId = interaction.options.getString("group_id") || channel.name.toLowerCase().replace(/[^a-z0-9\-]/g, "");
+    // User can optionally provide a group name to disambiguate if they have multiple groups for the same channel
+    const explicitGroupName = interaction.options.getString("group_id");
 
     // Validate the telegram URL
     const urlResult = parseUrls(telegramUrl);
@@ -704,15 +718,26 @@ ${lineSeparator}
 
     const validatedUrl = urlResult[0].url;
 
-    // We need a webhook URL for the config update - fetch current config to find it
+    // Fetch current config to find the subscription
     const serverConfig = await fetchConfig(config);
-    const subscription = serverConfig.subscriptions?.find(
-      (sub: { subscription_group_id: string }) => sub.subscription_group_id === groupId
-    );
+
+    // Find subscription by channel ID, optionally filtered by group name
+    // subscription_group_id format is: {groupName}-{channelId}
+    const subscription = serverConfig.subscriptions?.find((sub) => {
+      if (sub.discord_channel_id !== channel.id) return false;
+      if (explicitGroupName) {
+        // Check if the subscription_group_id starts with the provided group name
+        return sub.subscription_group_id.startsWith(`${explicitGroupName.toLowerCase()}-`);
+      }
+      return true;
+    });
 
     if (!subscription) {
+      const searchedBy = explicitGroupName
+        ? `group \`${explicitGroupName}\` in channel <#${channel.id}>`
+        : `channel <#${channel.id}>`;
       await interaction.editReply({
-        content: `❌ No subscription group found with ID \`${groupId}\`. Use \`/show\` to see current subscriptions.`
+        content: `❌ No subscription found for ${searchedBy}. Use \`/show\` to see current subscriptions.`
       });
       return;
     }
@@ -720,7 +745,7 @@ ${lineSeparator}
     // Send the update to the Express server
     await updateConfig(config, {
       discord_setup: {
-        subscription_group_id: groupId,
+        subscription_group_id: subscription.subscription_group_id,
         discord_webhook_url: subscription.discord_webhook_url,
         remove_telegram_unsubscribed_channels: [ validatedUrl ]
       }
@@ -866,7 +891,7 @@ async function main() {
         default:
           await interaction.reply({
             content: "Unknown command",
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
           });
       }
     } catch (error) {
@@ -886,7 +911,7 @@ async function main() {
         } else if (!interaction.replied) {
           await interaction.reply({
             content: "An error occurred while processing the command.",
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
           });
         }
       } catch {
