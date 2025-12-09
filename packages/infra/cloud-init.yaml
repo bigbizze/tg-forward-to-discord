@@ -1,0 +1,57 @@
+#cloud-config
+
+# System updates and basic packages
+package_update: true
+package_upgrade: true
+packages:
+  - curl
+  - git
+  - build-essential
+  - python3
+  - python3-pip
+  - python3-venv
+  - sqlite3
+  - unattended-upgrades
+
+runcmd:
+  # Install Node.js v22
+  - 'curl -fsSL https://deb.nodesource.com/setup_22.x | bash -'
+  - 'apt-get install -y nodejs'
+
+  # Install pnpm globally
+  - 'npm install -g pnpm@9.0.0'
+
+  # Install PM2 globally
+  - 'npm install -g pm2'
+
+  # Configure PM2 to start on boot
+  - 'pm2 startup systemd -u root --hp /root'
+  - 'systemctl enable pm2-root'
+
+  # Create application directory
+  - 'mkdir -p /opt/tg-discord'
+  - 'chown root:root /opt/tg-discord'
+
+  # Set timezone to UTC
+  - 'timedatectl set-timezone UTC'
+
+  # Enable automatic security updates
+  - 'dpkg-reconfigure -plow unattended-upgrades'
+
+write_files:
+  - path: /opt/tg-discord/.cloud-init-complete
+    content: |
+      Cloud-init completed at $(date)
+      
+      System is ready for application deployment.
+      Next steps:
+      1. Clone repository to /opt/tg-discord
+      2. Create .env file with configuration
+      3. Run ./scripts/idempotent-setup.sh
+    permissions: '0644'
+
+# Reboot after setup to ensure all changes take effect
+power_state:
+  mode: reboot
+  timeout: 300
+  condition: true
