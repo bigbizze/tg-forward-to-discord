@@ -58,6 +58,9 @@ coverage/
 # PM2
 .pm2/
 
+# Pulumi (contains encrypted secrets)
+Pulumi.*.yaml
+
 # Temporary files
 tmp/
 temp/

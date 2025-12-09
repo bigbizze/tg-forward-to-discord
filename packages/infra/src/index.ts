@@ -16,9 +16,28 @@ import * as tls from "@pulumi/tls";
 import { Output } from "@pulumi/pulumi/output";
 import type { ID } from "@pulumi/pulumi/resource";
 
-// Read Hetzner token from environment or Pulumi config
+// Read Hetzner configuration from environment
 const config = new pulumi.Config("hcloud");
-const token = process.env.HCLOUD_TOKEN || config.require("token");
+const token = process.env.HCLOUD_TOKEN || config.get("token");
+
+if (!token) {
+  throw new Error("HCLOUD_TOKEN environment variable is required");
+}
+
+// Create explicit hcloud provider with token from env
+const hcloudProvider = new hcloud.Provider("hcloud-provider", {
+  token: token
+});
+
+// Server configuration from environment (with defaults)
+const serverType = process.env.HCLOUD_SERVER_TYPE!;
+const serverImage = process.env.HCLOUD_IMAGE!;
+const serverLocation = process.env.HCLOUD_LOCATION!;
+
+// Additional allowed IPs for SSH access (comma-separated)
+const allowedIps = process.env.HCLOUD_ALLOWED_IPS
+  ? process.env.HCLOUD_ALLOWED_IPS.split(",").map(ip => ip.trim() + "/32")
+  : [];
 
 const PROJECT_NAME = "tg-discord-bridge";
 
@@ -33,7 +52,7 @@ const sshKey = new tls.PrivateKey(`${PROJECT_NAME}-ssh-key`, {
 const hcloudSshKey = new hcloud.SshKey(`${PROJECT_NAME}-key`, {
   name: `${PROJECT_NAME}-deploy-key`,
   publicKey: sshKey.publicKeyOpenssh
-});
+}, { provider: hcloudProvider });
 
 // =============================================================================
 // Firewall (Optional: Restrict SSH to GitHub Actions IPs)
@@ -41,7 +60,7 @@ const hcloudSshKey = new hcloud.SshKey(`${PROJECT_NAME}-key`, {
 
 // GitHub Actions IP ranges from api.github.com/meta
 const GITHUB_ACTIONS_IPS = [
-  // Just the main ranges to keep it manageable
+  // Main GitHub Actions ranges
   "4.148.0.0/16",
   "4.149.0.0/18",
   "4.151.0.0/16",
@@ -49,9 +68,8 @@ const GITHUB_ACTIONS_IPS = [
   "20.20.0.0/16",
   "20.29.0.0/17",
   "20.51.0.0/16",
-  // Add more from the response if needed
-  "0.0.0.0/0",  // Allow all for now (remove this line to restrict)
-  "::/0"
+  // Additional allowed IPs from environment (your personal IP, etc.)
+  ...allowedIps
 ];
 
 const firewall = new hcloud.Firewall(`${PROJECT_NAME}-firewall`, {
@@ -85,7 +103,7 @@ const firewall = new hcloud.Firewall(`${PROJECT_NAME}-firewall`, {
       destinationIps: [ "0.0.0.0/0", "::/0" ]
     }
   ]
-});
+}, { provider: hcloudProvider });
 
 // =============================================================================
 // Server (Hardcoded Configuration)
@@ -95,9 +113,9 @@ const cloudInitConfig = fs.readFileSync("./cloud-init.yaml", "utf8");
 
 const server = new hcloud.Server(`${PROJECT_NAME}-server`, {
   name: PROJECT_NAME,
-  serverType: "cx22",           // Hardcoded: 2 vCPU, 4 GB RAM
-  image: "ubuntu-22.04",         // Hardcoded: Ubuntu 22.04
-  location: "hel1",              // Hardcoded: Helsinki
+  serverType: serverType,
+  image: serverImage,
+  location: serverLocation,
   sshKeys: [ hcloudSshKey.id ],
 
   publicNets: [ {
@@ -120,7 +138,7 @@ const server = new hcloud.Server(`${PROJECT_NAME}-server`, {
     environment: "production",
     managed_by: "pulumi"
   }
-});
+}, { provider: hcloudProvider });
 
 // =============================================================================
 // Outputs (For GitHub Secrets)

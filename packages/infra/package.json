@@ -12,8 +12,11 @@
     }
   },
   "scripts": {
-    "pulumi:up": "tsgo -b && PULUMI_CONFIG_PASSPHRASE=\"\" pulumi up --stack production && pnpm remove-old-hosts",
-    "remove-old-hosts": "ssh-keygen -f '/home/userc/.ssh/known_hosts' -R '$(PULUMI_CONFIG_PASSPHRASE=\"\" pulumi stack output serverIp)'",
+    "build": "tsgo -b",
+    "pulumi:up": "tsgo -b && PULUMI_CONFIG_PASSPHRASE=\"\" pulumi up --stack production && pnpm pulumi:config:hosts",
+    "config:hosts": "pnpm -F @tg-discord/infra remove-old-hosts",
+    "config:ssh-key": "bash -c 'KEY=$(PULUMI_CONFIG_PASSPHRASE=\"\" pulumi stack output sshPrivateKey --show-secrets | sed \"s/^[[:space:]]*//;s/[[:space:]]*$//\") && HOST=$(PULUMI_CONFIG_PASSPHRASE=\"\" pulumi stack output serverIp) && echo \"$KEY\" > ~/.ssh/tg-discord && chmod 600 ~/.ssh/tg-discord && echo \"\" && echo \"=== GitHub Actions Secrets ==\" && echo \"\" && echo \"Update these secrets at: Settings → Secrets and variables → Actions\" && echo \"\" && echo \"SSH_HOST:\" && echo \"$HOST\" && echo \"\" && echo \"SSH_PRIVATE_KEY:\" && echo \"$KEY\" && echo \"\" && echo \"Local key saved to: ~/.ssh/tg-discord\" && echo \"Connect with: ssh -i ~/.ssh/tg-discord root@$HOST\"'",
+    "remove-old-hosts": "ssh-keygen -f ~/.ssh/known_hosts -R \"$(PULUMI_CONFIG_PASSPHRASE='' pulumi stack output serverIp)\"",
     "clean": "rm -rf bin/ dist tsconfig.tsbuildinfo",
     "typecheck": "tsgo --noEmit"
   },
