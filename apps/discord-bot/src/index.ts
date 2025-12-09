@@ -643,8 +643,9 @@ async function handleAddCommand(
       }
     });
 
+    const newUrlsFormatted = newUrls.map(url => `${newUrls.length > 1 ? "  • " : ""}${url.url} - *${url.username}*`).join("\n");
     // Build response message
-    let responseContent = `✅ Successfully subscribed **<#${channel.id}>** to:\n${newUrls.map(url => `${newUrls.length > 1 ? "  • " : ""}${url.url} - *${url.username}*`).join("\n")}\n\nGroup ID: \`${groupId}\`\\n\\n${lineSeparator}\\n\\n`;
+    let responseContent = `✅ Successfully subscribed **<#${channel.id}>** to:\n${newUrlsFormatted}\n\n${lineSeparator}\n\n`;
 
     // Mention skipped URLs if any
     if (alreadySubscribed.length > 0) {
