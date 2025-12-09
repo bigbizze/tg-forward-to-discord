@@ -10,8 +10,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "dev:logs": "RUN_LOG_DASHBOARD_IN_DEVELOPMENT=\"true\" pnpx nodemon --ext ts --watch src --watch ../../packages --exec \"pnpx tsx\" src/index.ts",
-    "get-logs": "pnpx pm2 logs \"/(discord-bot|python-scrape|express-server)\/\" --lines 100 ",
-    "get-logs:old": "tail -f ~/.pm2/logs/*out.log"
+    "get-logs": "pnpx pm2 logs \"/(discord-bot|python-scrape|express-server)\/\" --lines 100 "
   },
   "dependencies": {
     "app-root-path": "^3.1.0",
