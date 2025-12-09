@@ -44,11 +44,11 @@ from telethon.tl.types import Channel, Message
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from utils import get_repo_root, get_session_path
+
 # Load environment variables from .env file
 load_dotenv()
-
-
-# =============================================================================
+# =======================================================
 # Configuration
 # =============================================================================
 
@@ -401,7 +401,7 @@ class TelegramScraper:
         self.config = config
         self.db = Database(config.sqlite_path)
         self.http = HttpClient(config)
-        session_path = os.path.join("..", "..", "session")
+        session_path = get_session_path()
         if not os.path.exists(session_path):
             raise FileNotFoundError("Telegram session file 'session' not found. You need to run setup_session.py first")
         with open(session_path, "r") as f:

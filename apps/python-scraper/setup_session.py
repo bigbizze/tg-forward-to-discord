@@ -3,6 +3,9 @@ import asyncio
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
+
+from utils import get_session_path
+
 load_dotenv()
 
 async def main():
@@ -11,7 +14,8 @@ async def main():
     session = client.session.save()
     assert session is not None
     assert isinstance(session, str)
-    with open(os.path.join("..", "..", "session"), "w") as f:
+    session_path = get_session_path()
+    with open(os.path.join(session_path, "apps", "python-scraper", "session"), "w") as f:
         f.write(session.strip())
     
 

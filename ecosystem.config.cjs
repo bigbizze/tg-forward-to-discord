@@ -3,6 +3,7 @@ const shared = {
   cwd: '/opt/tg-discord',
   instances: 1,
   time: true,
+  autorestart: true
 }
 
 module.exports = {
