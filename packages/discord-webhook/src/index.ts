@@ -233,8 +233,6 @@ export function formatTelegramMessageForDiscord(
     color: 0x0088cc // Telegram blue
   };
 
-  const viewText = (telegramMessage.views ?? 0) <= 1 ? "View" : "Views";
-  // Add views if available
   if (telegramMessage.views !== null && telegramMessage.views !== undefined) {
     embed.color = 3066993;
     embed.fields = [
@@ -247,7 +245,7 @@ ${lineSeparator}
       },
       {
         name: "",
-        value: `-# ${telegramMessage.views.toLocaleString()} ${viewText} | [Msg](https://t.me/${channelInfo.channelUsername}/${telegramMessage.id}) | [Channel](${channelInfo.channelUrl})`,
+        value: `-# [Msg](https://t.me/${channelInfo.channelUsername}/${telegramMessage.id}) | [Channel](${channelInfo.channelUrl})`,
         inline: false
       }
     ];

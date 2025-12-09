@@ -131,7 +131,7 @@ fi
 # =============================================================================
 # Step 3: Install npm dependencies
 # =============================================================================
-log_info "Installing npm dependencies..."
+log_info "Installing npm dependencies with pnpm..."
 
 # Use frozen lockfile if it exists, otherwise install normally
 if [ -f "pnpm-lock.yaml" ]; then
