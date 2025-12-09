@@ -13,9 +13,12 @@
   },
   "scripts": {
     "build": "tsgo -b",
-    "pulumi:up": "tsgo -b && PULUMI_CONFIG_PASSPHRASE=\"\" pulumi up --stack production && pnpm config:hosts && pnpm config:ssh-key",
+    "pulumi:up": "tsgo -b && PULUMI_CONFIG_PASSPHRASE=\"\" pulumi up --stack production --yes",
+    "pulumi:ssh-key": "PULUMI_CONFIG_PASSPHRASE=\"\" pulumi stack output sshPrivateKey --show-secrets",
+    "pulumi:server-ip": "PULUMI_CONFIG_PASSPHRASE=\"\" pulumi stack output serverIp",
+    "pulumi:up:config": "pnpm config:hosts && pnpm config:ssh-key",
     "config:hosts": "pnpm -F @tg-discord/infra remove-old-hosts",
-    "config:ssh-key": "bash -c 'KEY=$(PULUMI_CONFIG_PASSPHRASE=\"\" pulumi stack output sshPrivateKey --show-secrets | sed \"s/^[[:space:]]*//;s/[[:space:]]*$//\") && HOST=$(PULUMI_CONFIG_PASSPHRASE=\"\" pulumi stack output serverIp) && echo \"$KEY\" > ~/.ssh/tg-discord && chmod 600 ~/.ssh/tg-discord && echo \"\" && echo \"=== GitHub Actions Secrets ==\" && echo \"\" && echo \"Update these secrets at: Settings → Secrets and variables → Actions\" && echo \"\" && echo \"SSH_HOST:\" && echo \"$HOST\" && echo \"\" && echo \"SSH_PRIVATE_KEY:\" && echo \"$KEY\" && echo \"\" && echo \"Local key saved to: ~/.ssh/tg-discord\" && echo \"Connect with: ssh -i ~/.ssh/tg-discord root@$HOST\"'",
+    "config:ssh-key": "bash -c 'KEY=$(PULUMI_CONFIG_PASSPHRASE=\"\" pulumi stack output sshPrivateKey --show-secrets | sed -e \"s/^[[:space:]]*//\" -e \"s/[[:space:]]*$//\" -e \"/^$/d\" | sed -e :a -e \"/^\\n*$/{$d;N;ba\" -e \"}\") && HOST=$(PULUMI_CONFIG_PASSPHRASE=\"\" pulumi stack output serverIp | tr -d \"[:space:]\") && printf \"%s\\n\" \"$KEY\" > ~/.ssh/tg-discord && chmod 600 ~/.ssh/tg-discord && echo \"\" && echo \"=== GitHub Actions Secrets ==\" && echo \"\" && echo \"Update these secrets at: Settings → Secrets and variables → Actions\" && echo \"\" && echo \"SSH_HOST:\" && echo \"$HOST\" && echo \"\" && echo \"SSH_PRIVATE_KEY:\" && echo \"$KEY\" && echo \"\" && echo \"Local key saved to: ~/.ssh/tg-discord\" && echo \"Connect with: ssh -i ~/.ssh/tg-discord root@$HOST\"'",
     "remove-old-hosts": "ssh-keygen -f ~/.ssh/known_hosts -R \"$(PULUMI_CONFIG_PASSPHRASE='' pulumi stack output serverIp)\"",
     "clean": "rm -rf bin/ dist tsconfig.tsbuildinfo",
     "typecheck": "tsgo --noEmit"
