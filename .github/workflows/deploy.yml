@@ -1,4 +1,3 @@
-# GitHub Actions Deployment Workflow
 name: Deploy
 
 on:
@@ -17,109 +16,128 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to Hetzner Cloud
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.9.0
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: root
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          script_stop: true
-          command_timeout: 30m
-          envs: GH_TOKEN,GITHUB_REPOSITORY,GITHUB_REF_NAME
-          script: |
-            set -e
-            
-            echo "=== Starting deployment ==="
-            echo "Server: $(hostname)"
-            echo "User: $(whoami)"
-            echo "Date: $(date)"
-            echo ""
-            
-            # Ensure project directory exists
-            mkdir -p /opt/tg-discord
-            cd /opt/tg-discord
-            
-            # Check if git repository is initialized
-            if [ ! -d ".git" ]; then
-              echo "=== First deployment detected ==="
-              echo "Initializing git repository..."
-              
-              # Check if directory has files (besides .cloud-init-complete)
-              FILE_COUNT=$(find . -maxdepth 1 -not -name '.cloud-init-complete' -not -name '.' -not -name '..' | wc -l)
-              
-              if [ "$FILE_COUNT" -gt 0 ]; then
-                echo "Directory not empty, cleaning up non-critical files..."
-                find . -maxdepth 1 -not -name '.cloud-init-complete' -not -name '.' -not -name '..' -exec rm -rf {} +
-              fi
-              
-              # Initialize git and fetch using token authentication
-              git init
-              git remote add origin https://${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
-              git fetch origin
-              git checkout -b ${GITHUB_REF_NAME}
-              git reset --hard origin/${GITHUB_REF_NAME}
-              
-              echo "✓ Repository cloned successfully"
-              
-              # Check if .env exists
-              if [ ! -f ".env" ]; then
-                echo ""
-                echo "⚠️  IMPORTANT: .env file not found!"
-                echo ""
-                echo "Next steps:"
-                echo "1. SSH into the server: ssh -i ssh_key root@${{ secrets.SSH_HOST }}"
-                echo "2. Navigate to: cd /opt/tg-discord"
-                echo "3. Create .env file with your credentials"
-                echo "   You can copy from: cp .env.example .env"
-                echo "   Then edit: nano .env"
-                echo "4. Push a new commit or re-run this workflow"
-                echo ""
-                exit 1
-              fi
-            else
-              echo "=== Updating existing deployment ==="
-            fi
-            
-            # Fetch and reset to latest
-            echo "Fetching latest code..."
-            git fetch origin
-            
-            # Store old commit for comparison
-            OLD_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "none")
-            
-            # Reset to latest
-            git reset --hard origin/${GITHUB_REF_NAME}
-            
-            # Show what changed
-            NEW_COMMIT=$(git rev-parse HEAD)
-            echo ""
-            echo "Commit: $(git rev-parse --short HEAD)"
-            
-            if [ "$OLD_COMMIT" != "$NEW_COMMIT" ] && [ "$OLD_COMMIT" != "none" ]; then
-              echo "Changes:"
-              git log --oneline --no-decorate $OLD_COMMIT..$NEW_COMMIT || echo "  (showing latest commit only)"
-            fi
-            
-            echo "Latest commit message:"
-            git log -1 --pretty=format:"%s"
-            echo ""
-            echo ""
-            
-            # Run the idempotent setup script
-            echo "Running setup script..."
-            chmod +x scripts/idempotent-setup.sh
-            ./scripts/idempotent-setup.sh
-            
-            echo ""
-            echo "=== Deployment complete ==="
-            echo ""
-            echo "View logs with: pm2 logs"
-            echo "Check status with: pm2 status"
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add Remote Host to Known Hosts
+        run: |
+          echo "Adding host to known_hosts..."
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          echo "✓ Host added successfully"
+
+      - name: Deploy to Server
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+        run: |
+          ssh root@${{ secrets.SSH_HOST }} /bin/bash << 'ENDSSH'
+          set -e
+          
+          echo "=== Starting deployment ==="
+          echo "Server: $(hostname)"
+          echo "User: $(whoami)"
+          echo "Date: $(date)"
+          echo ""
+          
+          # Set the GitHub token for this session
+          export GH_TOKEN="${GH_TOKEN}"
+          export GITHUB_REPOSITORY="${GITHUB_REPOSITORY}"
+          export GITHUB_REF_NAME="${GITHUB_REF_NAME}"
+          
+          # Ensure project directory exists
+          mkdir -p /opt/tg-discord
+          cd /opt/tg-discord
+          
+          # Check if git repository is initialized
+          if [ ! -d ".git" ]; then
+            echo "=== First deployment detected ==="
+            echo "Initializing git repository..."
+            
+            # Check if directory has files (besides .cloud-init-complete)
+            FILE_COUNT=$(find . -maxdepth 1 -not -name '.cloud-init-complete' -not -name '.' -not -name '..' 2>/dev/null | wc -l)
+            
+            if [ "$FILE_COUNT" -gt 0 ]; then
+              echo "Directory not empty, cleaning up non-critical files..."
+              find . -maxdepth 1 -not -name '.cloud-init-complete' -not -name '.' -not -name '..' -exec rm -rf {} + 2>/dev/null || true
+            fi
+            
+            # Initialize git and fetch using token authentication
+            echo "Initializing git..."
+            git init
+            
+            echo "Adding remote..."
+            git remote add origin "https://${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+            
+            echo "Fetching from origin..."
+            git fetch origin
+            
+            echo "Checking out branch ${GITHUB_REF_NAME}..."
+            git checkout -b "${GITHUB_REF_NAME}"
+            
+            echo "Resetting to origin/${GITHUB_REF_NAME}..."
+            git reset --hard "origin/${GITHUB_REF_NAME}"
+            
+            echo "✓ Repository cloned successfully"
+            
+            # Check if .env exists
+            if [ ! -f ".env" ]; then
+              echo ""
+              echo "⚠️  IMPORTANT: .env file not found!"
+              echo ""
+              echo "Next steps:"
+              echo "1. SSH into the server: ssh -i ssh_key root@${SSH_HOST}"
+              echo "2. Navigate to: cd /opt/tg-discord"
+              echo "3. Create .env file with your credentials"
+              echo "   You can copy from: cp .env.example .env"
+              echo "   Then edit: nano .env"
+              echo "4. Push a new commit or re-run this workflow"
+              echo ""
+              exit 1
+            fi
+          else
+            echo "=== Updating existing deployment ==="
+          fi
+          
+          # Fetch and reset to latest
+          echo "Fetching latest code..."
+          git fetch origin
+          
+          # Store old commit for comparison
+          OLD_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "none")
+          
+          # Reset to latest
+          git reset --hard "origin/${GITHUB_REF_NAME}"
+          
+          # Show what changed
+          NEW_COMMIT=$(git rev-parse HEAD)
+          echo ""
+          echo "Commit: $(git rev-parse --short HEAD)"
+          
+          if [ "$OLD_COMMIT" != "$NEW_COMMIT" ] && [ "$OLD_COMMIT" != "none" ]; then
+            echo "Changes:"
+            git log --oneline --no-decorate "$OLD_COMMIT..$NEW_COMMIT" 2>/dev/null || echo "  (showing latest commit only)"
+          fi
+          
+          echo "Latest commit message:"
+          git log -1 --pretty=format:"%s"
+          echo ""
+          echo ""
+          
+          # Run the idempotent setup script
+          echo "Running setup script..."
+          chmod +x scripts/idempotent-setup.sh
+          ./scripts/idempotent-setup.sh
+          
+          echo ""
+          echo "=== Deployment complete ==="
+          echo ""
+          echo "View logs with: pm2 logs"
+          echo "Check status with: pm2 status"
+          ENDSSH
 
       - name: Deployment Summary
         if: success()
