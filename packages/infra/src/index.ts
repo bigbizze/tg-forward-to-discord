@@ -64,6 +64,13 @@ const firewall = new hcloud.Firewall(`${PROJECT_NAME}-firewall`, {
       port: "22",
       sourceIps: GITHUB_ACTIONS_IPS
     },
+    // HTTP - allow from anywhere for log dashboard
+    {
+      direction: "in",
+      protocol: "tcp",
+      port: "80",
+      sourceIps: [ "0.0.0.0/0", "::/0" ]
+    },
     // Allow all outbound for API calls
     {
       direction: "out",

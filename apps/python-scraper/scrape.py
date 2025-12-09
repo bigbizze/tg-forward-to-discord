@@ -24,6 +24,7 @@ Required Environment Variables:
 - DEFAULT_CRON: Cron expression for polling interval (default: "*/10 * * * *")
 """
 
+import os
 import asyncio
 import json
 import math
@@ -38,6 +39,7 @@ from dataclasses import dataclass
 import aiohttp
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
+from telethon.sessions import StringSession
 from telethon.tl.types import Channel, Message
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -399,7 +401,11 @@ class TelegramScraper:
         self.config = config
         self.db = Database(config.sqlite_path)
         self.http = HttpClient(config)
-        self.client = TelegramClient('scraper_session', config.api_id, config.api_hash)
+        if not os.path.exists("session"):
+            raise FileNotFoundError("Telegram session file 'session' not found. You need to run setup_session.py first")
+        with open("session", "r") as f:
+            session_value = f.read().strip()
+        self.client = TelegramClient(StringSession(session_value), config.api_id, config.api_hash)
         self.scheduler = AsyncIOScheduler()
         
         # Cache of active channel IDs for filtering events
@@ -417,7 +423,8 @@ class TelegramScraper:
         self._debounce_lock = asyncio.Lock()
         self._debounce_ms = 1000  # 1 second
         self._max_wait_ms = 5000  # 5 seconds
-    
+        self._has_used_startup_grace_period_retry = False  # Only once per run
+        
     async def start(self):
         """Start the scraper."""
         print("Starting Telegram scraper...")
@@ -807,6 +814,7 @@ class TelegramScraper:
                 # Non-critical - we can still send with numeric ID as username
                 print(f"  Could not fetch entity for username lookup: {e}", file=sys.stderr)
                 username = str(telegram_id)
+                
         
         result = await self.http.send_messages(
             channel_id=telegram_id,
@@ -814,10 +822,20 @@ class TelegramScraper:
             channel_url=channel_info.get('telegram_url', f'https://t.me/{username}'),
             messages=messages
         )
-        
+        if not result.ok and not self._has_used_startup_grace_period_retry:
+            self._has_used_startup_grace_period_retry = True
+            await asyncio.sleep(5)
+            result = await self.http.send_messages(
+                channel_id=telegram_id,
+                channel_username=username,
+                channel_url=channel_info.get('telegram_url', f'https://t.me/{username}'),
+                messages=messages
+            )
+            
         if result.ok:
             print(f"  Sent batch of {len(messages)} messages: processed={result.value['processed']}")
         else:
+            await asyncio.sleep(5)
             print(f"  Error sending batch: {result.error}", file=sys.stderr)
             await self.http.send_log(
                 "error",

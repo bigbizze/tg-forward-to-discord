@@ -1,7 +1,5 @@
 #cloud-config
 
-package_update: true
-package_upgrade: true
 packages:
   - curl
   - git
@@ -11,22 +9,74 @@ packages:
   - python3-venv
   - sqlite3
   - unattended-upgrades
+  - nginx
 
+# Install Node.js v22
 runcmd:
-  - 'curl -fsSL https://deb.nodesource.com/setup_22.x | bash -'
-  - 'apt-get install -y nodejs'
-  - 'npm install -g pnpm@9.0.0'
-  - 'npm install -g pm2'
-  - 'pm2 startup systemd -u root --hp /root'
-  - 'systemctl enable pm2-root'
-  - 'mkdir -p /opt/tg-discord'
-  - 'chown root:root /opt/tg-discord'
-  - 'timedatectl set-timezone UTC'
-  - 'dpkg-reconfigure -plow unattended-upgrades'
+  # Add NodeSource repository for Node.js 22
+  - curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+  - apt-get install -y nodejs
+  
+  # Install pnpm and PM2
+  - npm install -g pnpm@9.0.0
+  - npm install -g pm2
+  
+  # Setup PM2 to start on boot
+  - env PATH=$PATH:/usr/bin pm2 startup systemd -u root --hp /root
+  
+  # Create application directory
+  - mkdir -p /opt/tg-discord
+  - chown root:root /opt/tg-discord
+  
+  # Setup nginx
+  - rm -f /etc/nginx/sites-enabled/default
+  - ln -s /etc/nginx/sites-available/log-dashboard /etc/nginx/sites-enabled/default
+  - nginx -t && systemctl reload nginx
+  - systemctl enable nginx
+  
+  # Set timezone
+  - timedatectl set-timezone UTC
+  
+  # Enable automatic security updates
+  - echo 'APT::Periodic::Update-Package-Lists "1";' > /etc/apt/apt.conf.d/20auto-upgrades
+  - echo 'APT::Periodic::Unattended-Upgrade "1";' >> /etc/apt/apt.conf.d/20auto-upgrades
+  
+  # Create completion marker
+  - touch /opt/tg-discord/.cloud-init-complete
+  - echo "Cloud-init completed at $(date)" > /opt/tg-discord/.cloud-init-complete
+  
+  # Reboot to apply all updates
+  - reboot
 
-# Remove write_files section - don't create any files in /opt/tg-discord
-
-power_state:
-  mode: reboot
-  timeout: 300
-  condition: true
+write_files:
+  - path: /etc/nginx/sites-available/log-dashboard
+    content: |
+      server {
+          listen 80 default_server;
+          listen [::]:80 default_server;
+          
+          server_name _;
+          
+          # Increase timeouts for SSE
+          proxy_read_timeout 86400s;
+          proxy_send_timeout 86400s;
+          
+          location / {
+              proxy_pass http://localhost:6868;
+              proxy_http_version 1.1;
+              
+              # Required for SSE
+              proxy_set_header Connection '';
+              proxy_set_header Cache-Control 'no-cache';
+              proxy_set_header X-Accel-Buffering 'no';
+              proxy_buffering off;
+              
+              # Standard proxy headers
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+          }
+      }
+    owner: root:root
+    permissions: '0644'

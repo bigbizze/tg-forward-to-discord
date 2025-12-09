@@ -10,10 +10,7 @@
     "typecheck": "tsgo --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "dev2": "",
-    "dev:run": "pnpx nodemon --ext ts --watch src --watch ../../packages --exec \"pnpx tsx\" src/index.ts",
-    "dev:watch": "tsgo -b --watch --preserveWatchOutput",
-    "dev": "pnpx concurrently \"pnpm dev:run\" \"pnpm dev:watch\"",
+    "dev": "pnpx nodemon --ext ts --watch src --watch ../../packages --exec \"pnpx tsx\" src/index.ts",
     "clean": "pnpx rimraf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {

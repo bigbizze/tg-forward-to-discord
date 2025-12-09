@@ -9,6 +9,7 @@
 # - SSH_PRIVATE_KEY: SSH private key (get from: pulumi stack output sshPrivateKey --show-secrets)
 # - GH_TOKEN: GitHub Personal Access Token with repo scope (for private repo access)
 # - ENV_FILE: Complete .env file content with all application configuration
+# - TELEGRAM_SESSION: Telegram session file content for the Python scraper
 #
 # The server is provisioned by Pulumi with cloud-init which installs:
 # - Node.js v22, Python 3, pnpm, PM2
@@ -18,10 +19,11 @@
 # This workflow will:
 # 1. Clone/update the repository on the server
 # 2. Create .env file from GitHub secret
-# 3. Install dependencies (Node.js and Python)
-# 4. Build all TypeScript packages
-# 5. Set up the database
-# 6. Start/restart PM2 processes
+# 3. Create Telegram session file from GitHub secret
+# 4. Install dependencies (Node.js and Python)
+# 5. Build all TypeScript packages
+# 6. Set up the database
+# 7. Start/restart PM2 processes
 
 name: Deploy
 
@@ -37,22 +39,79 @@ jobs:
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set up SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-      
+
       - name: Add Remote Host to Known Hosts
         run: |
           echo "Adding host to known_hosts..."
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
           echo "✓ Host added successfully"
-      
+
+      - name: Setup nginx (one-time)
+        run: |
+          ssh root@${{ secrets.SSH_HOST }} << 'EOF'
+          # Check if nginx is already configured
+          if [ ! -f /etc/nginx/sites-available/log-dashboard ]; then
+            echo "Installing and configuring nginx..."
+
+            # Install nginx if not present
+            if ! command -v nginx &> /dev/null; then
+              apt update && apt install -y nginx
+            fi
+
+            # Create nginx config
+            cat > /etc/nginx/sites-available/log-dashboard << 'NGINX_EOF'
+          server {
+              listen 80 default_server;
+              listen [::]:80 default_server;
+
+              server_name _;
+
+              # Increase timeouts for SSE
+              proxy_read_timeout 86400s;
+              proxy_send_timeout 86400s;
+
+              location / {
+                  proxy_pass http://localhost:6868;
+                  proxy_http_version 1.1;
+
+                  # Required for SSE
+                  proxy_set_header Connection '';
+                  proxy_set_header Cache-Control 'no-cache';
+                  proxy_set_header X-Accel-Buffering 'no';
+                  proxy_buffering off;
+
+                  # Standard proxy headers
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+              }
+          }
+          NGINX_EOF
+
+            # Enable site
+            rm -f /etc/nginx/sites-enabled/default
+            ln -s /etc/nginx/sites-available/log-dashboard /etc/nginx/sites-enabled/default
+
+            # Test and reload
+            nginx -t && systemctl reload nginx
+            systemctl enable nginx
+
+            echo "✓ nginx configured successfully"
+          else
+            echo "✓ nginx already configured"
+          fi
+          EOF
+
       - name: Deploy to Server
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -60,8 +119,9 @@ jobs:
           GITHUB_REF_NAME: ${{ github.ref_name }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
           ENV_FILE: ${{ secrets.ENV_FILE }}
+          TELEGRAM_SESSION: ${{ secrets.TELEGRAM_SESSION }}
         run: |
-          ssh root@${{ secrets.SSH_HOST }} "GH_TOKEN='${GH_TOKEN}' GITHUB_REPOSITORY='${GITHUB_REPOSITORY}' GITHUB_REF_NAME='${GITHUB_REF_NAME}' SSH_HOST='${SSH_HOST}' ENV_FILE='${ENV_FILE}' bash -s" << 'ENDSSH'
+          ssh root@${{ secrets.SSH_HOST }} "GH_TOKEN='${GH_TOKEN}' GITHUB_REPOSITORY='${GITHUB_REPOSITORY}' GITHUB_REF_NAME='${GITHUB_REF_NAME}' SSH_HOST='${SSH_HOST}' ENV_FILE='${ENV_FILE}' TELEGRAM_SESSION='${TELEGRAM_SESSION}' bash -s" << 'ENDSSH'
           set -e
           
           echo "=== Starting deployment ==="
@@ -170,6 +230,34 @@ jobs:
             echo ""
           fi
           
+          # Create Telegram session file from GitHub secret
+          # This file contains the authentication session for the Telegram scraper
+          if [ -n "$TELEGRAM_SESSION" ]; then
+            echo "Creating Telegram session file from GitHub secret..."
+            
+            # Ensure the python-scraper directory exists
+            mkdir -p apps/python-scraper
+            
+            # Write the session file content
+            echo "$TELEGRAM_SESSION" > apps/python-scraper/session
+            
+            # Secure the session file (only owner can read/write)
+            chmod 600 apps/python-scraper/session
+            
+            echo "✓ Telegram session file created and secured"
+          else
+            echo "⚠️  WARNING: TELEGRAM_SESSION secret not set!"
+            echo "The Python scraper will not be able to authenticate with Telegram."
+            echo ""
+            echo "To fix this:"
+            echo "1. Go to GitHub repository → Settings → Secrets and variables → Actions"
+            echo "2. Add a new secret named 'TELEGRAM_SESSION'"
+            echo "3. Copy the content of your local apps/python-scraper/session file"
+            echo "4. Paste it as the secret value"
+            echo "5. Re-run this deployment"
+            echo ""
+          fi
+          
           # Run the idempotent setup script
           echo "Running setup script..."
           chmod +x scripts/idempotent-setup.sh
@@ -211,6 +299,7 @@ jobs:
           echo ""
           echo "Common issues:"
           echo "- Missing ENV_FILE secret: Add it in GitHub Settings → Secrets"
+          echo "- Missing TELEGRAM_SESSION secret: Add it in GitHub Settings → Secrets"
           echo "- Missing GH_TOKEN secret: Create a Personal Access Token with repo scope"
           echo "- SSH connection issues: Verify SSH_HOST and SSH_PRIVATE_KEY secrets"
           exit 1

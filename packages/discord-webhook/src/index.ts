@@ -23,7 +23,6 @@ import {
 } from "@tg-discord/result";
 import type { DiscordWebhookMessage, TelegramMessage } from "@tg-discord/shared-types";
 
-const Limiter = limiter.RateLimiter;
 type RateLimiter = limiter.RateLimiter;
 
 /**
@@ -32,11 +31,16 @@ type RateLimiter = limiter.RateLimiter;
  */
 const rateLimiters = new Map<string, RateLimiter>();
 
+let limiterPackage: typeof import("limiter") | null = null;
 /**
  * Gets or creates a rate limiter for a specific webhook URL.
  * Configured conservatively at 25 requests per minute (Discord allows ~30).
  */
-function getRateLimiter(webhookUrl: string): RateLimiter {
+async function getRateLimiter(webhookUrl: string): Promise<RateLimiter> {
+  if (limiterPackage === null) {
+    limiterPackage = await import("limiter");
+  }
+  const Limiter = limiterPackage.RateLimiter;
   let limiter = rateLimiters.get(webhookUrl);
 
   if (!limiter) {
@@ -113,7 +117,7 @@ export async function postToDiscordWebhook(
   webhookUrl: string,
   message: DiscordWebhookMessage
 ): Promise<Result<void, AppError>> {
-  const limiter = getRateLimiter(webhookUrl);
+  const limiter = await getRateLimiter(webhookUrl);
 
   // Wait for rate limiter token
   await limiter.removeTokens(1);

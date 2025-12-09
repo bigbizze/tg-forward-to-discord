@@ -12,7 +12,8 @@
     }
   },
   "scripts": {
-    "pulumi:up": "tsgo -b && PULUMI_CONFIG_PASSPHRASE=\"\" pulumi up --stack production",
+    "pulumi:up": "tsgo -b && PULUMI_CONFIG_PASSPHRASE=\"\" pulumi up --stack production && pnpm remove-old-hosts",
+    "remove-old-hosts": "ssh-keygen -f '/home/userc/.ssh/known_hosts' -R '$(PULUMI_CONFIG_PASSPHRASE=\"\" pulumi stack output serverIp)'",
     "clean": "rm -rf bin/ dist tsconfig.tsbuildinfo",
     "typecheck": "tsgo --noEmit"
   },

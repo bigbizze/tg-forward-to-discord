@@ -61,3 +61,5 @@ coverage/
 # Temporary files
 tmp/
 temp/
+
+apps/python-scraper/session
