@@ -1,24 +1,4 @@
 # GitHub Actions Deployment Workflow
-#
-# This workflow deploys the application to Hetzner Cloud when code is pushed
-# to the master branch. It SSHs into the server and runs the idempotent setup
-# script.
-#
-# Required Secrets (configure in GitHub repo settings):
-# - SSH_HOST: Server IP address (get from: pulumi stack output serverIp)
-# - SSH_PRIVATE_KEY: SSH private key (get from: pulumi stack output sshPrivateKey --show-secrets)
-#
-# The server is provisioned by Pulumi with cloud-init which installs:
-# - Node.js v22, Python 3, pnpm, PM2
-# - Creates /opt/tg-discord directory
-# - Sets up PM2 systemd service
-#
-# On first deployment, this workflow will:
-# 1. Clone the repository to /opt/tg-discord
-# 2. Create .env file (exits with instructions)
-# 3. Wait for manual .env configuration
-# 4. Run setup script on next push
-
 name: Deploy
 
 on:
@@ -26,18 +6,17 @@ on:
     branches:
       - master
       - main
-  # Allow manual trigger from GitHub UI
   workflow_dispatch:
 
 jobs:
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Deploy to Hetzner Cloud
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -47,6 +26,7 @@ jobs:
           port: 22
           script_stop: true
           command_timeout: 30m
+          envs: GH_TOKEN,GITHUB_REPOSITORY,GITHUB_REF_NAME
           script: |
             set -e
             
@@ -70,16 +50,15 @@ jobs:
               
               if [ "$FILE_COUNT" -gt 0 ]; then
                 echo "Directory not empty, cleaning up non-critical files..."
-                # Keep only .cloud-init-complete
                 find . -maxdepth 1 -not -name '.cloud-init-complete' -not -name '.' -not -name '..' -exec rm -rf {} +
               fi
               
-              # Initialize git and fetch
+              # Initialize git and fetch using token authentication
               git init
-              git remote add origin https://github.com/${{ github.repository }}
+              git remote add origin https://${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
               git fetch origin
-              git checkout -b ${{ github.ref_name }}
-              git reset --hard origin/${{ github.ref_name }}
+              git checkout -b ${GITHUB_REF_NAME}
+              git reset --hard origin/${GITHUB_REF_NAME}
               
               echo "✓ Repository cloned successfully"
               
@@ -110,7 +89,7 @@ jobs:
             OLD_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "none")
             
             # Reset to latest
-            git reset --hard origin/${{ github.ref_name }}
+            git reset --hard origin/${GITHUB_REF_NAME}
             
             # Show what changed
             NEW_COMMIT=$(git rev-parse HEAD)
@@ -137,6 +116,10 @@ jobs:
             echo ""
             echo "View logs with: pm2 logs"
             echo "Check status with: pm2 status"
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
 
       - name: Deployment Summary
         if: success()
