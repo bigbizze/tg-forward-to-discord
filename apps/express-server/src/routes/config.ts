@@ -17,7 +17,8 @@ import {
   getTelegramChannelByUrl,
   createOrActivateDiscordWebhook,
   deactivateDiscordWebhook,
-  getOrCreateDiscordChannelInfo
+  getOrCreateDiscordChannelInfo,
+  updateWebhookUrlForSubscriptionGroup
 } from "@tg-discord/db";
 import { getConfig } from "@tg-discord/config";
 
@@ -156,6 +157,17 @@ export function createConfigRouter(): Router {
             return;
           }
           discordChannelInfoId = channelInfoResult.value.id;
+        }
+
+        // Update webhook URL for ALL existing records in this subscription group
+        // This ensures all telegram channels use the same (potentially new) Discord webhook
+        const updateResult = updateWebhookUrlForSubscriptionGroup(
+          subscription_group_id,
+          discord_webhook_url,
+          discordChannelInfoId
+        );
+        if (updateResult.ok && updateResult.value > 0) {
+          console.log(`Updated webhook URL for ${updateResult.value} existing subscriptions in group ${subscription_group_id}`);
         }
 
         // Process removals first

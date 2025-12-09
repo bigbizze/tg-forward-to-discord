@@ -576,28 +576,29 @@ async function handleAddCommand(
       try {
         const textChannel = await interaction.guild?.channels.fetch(channel.id);
         if (textChannel && textChannel.type === ChannelType.GuildText) {
-          // First, check for existing webhooks with the same name
+          // Check for existing webhooks created by our bot
           const existingWebhooks = await textChannel.fetchWebhooks();
-          const matchingWebhooks = existingWebhooks.filter(wh => wh.name === webhookName);
+          const botId = interaction.client.user?.id;
+
+          // Only consider webhooks that were created by our bot
+          const ourWebhooks = existingWebhooks.filter(wh =>
+            wh.owner?.id === botId && wh.name === webhookName
+          );
 
           let webhookToKeep: Webhook<WebhookType.Incoming | WebhookType.ChannelFollower> | undefined = undefined;
 
-          if (matchingWebhooks.size > 0) {
-            // Sort by createdAt (oldest first)
-            const sortedWebhooks = [ ...matchingWebhooks.values() ].sort(
+          if (ourWebhooks.size > 0) {
+            // Sort by createdAt (oldest first) and keep the oldest one
+            const sortedWebhooks = [ ...ourWebhooks.values() ].sort(
               (a, b) => (a.createdTimestamp ?? 0) - (b.createdTimestamp ?? 0)
             );
 
-            // Find a webhook with matching avatar (avatarURL() returns the full URL)
-            webhookToKeep = sortedWebhooks.find(wh => wh.avatarURL() === avatarUrl);
+            webhookToKeep = sortedWebhooks[0];
 
-            // Delete all webhooks that we're not keeping
-            for (const webhook of sortedWebhooks) {
-              if (webhookToKeep && webhook.id === webhookToKeep.id) {
-                continue; // Skip the one we're keeping
-              }
+            // Delete duplicate webhooks created by our bot (keep only the oldest)
+            for (const webhook of sortedWebhooks.slice(1)) {
               try {
-                await webhook.delete("Removing duplicate/outdated Telegram Bridge webhook");
+                await webhook.delete("Removing duplicate Telegram Bridge webhook");
               } catch {
                 // Ignore deletion errors
               }
