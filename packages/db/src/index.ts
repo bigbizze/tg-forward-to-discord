@@ -42,6 +42,7 @@ export {
   deactivateDiscordWebhookById,
   getDiscordWebhookById,
   getGroupedActiveSubscriptions,
+  updateWebhookUrlForSubscriptionGroup,
   type GroupedSubscription
 } from "./queries/discord-webhook.js";
 

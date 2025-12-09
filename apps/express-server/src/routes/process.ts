@@ -141,7 +141,7 @@ async function processPendingForward(
   });
 
   try {
-    // Use async-retry with specific retry configuration:
+    // Use async-retry with specific retry configuration:  ssh -i ~/.ssh/tg-discord root@157.180.112.204
     // - 2 retries (3 total attempts)
     // - First retry after 1 second
     // - Second retry after 2 seconds

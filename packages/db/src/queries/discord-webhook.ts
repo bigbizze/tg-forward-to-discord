@@ -344,6 +344,39 @@ export function deactivateDiscordWebhookById(
 }
 
 /**
+ * Updates the webhook URL and channel info for ALL records in a subscription group.
+ * This ensures all telegram channels in a group use the same Discord webhook.
+ * Returns the number of records updated.
+ */
+export function updateWebhookUrlForSubscriptionGroup(
+  subscriptionGroupId: string,
+  discordWebhookUrl: string,
+  discordChannelInfoId?: number | null
+): Result<number, AppError> {
+  const connResult = getConnection();
+  if (!connResult.ok) return connResult;
+
+  try {
+    const db = connResult.value;
+    const now = nowUtc();
+
+    const result = db.prepare(`
+      UPDATE discord_webhook
+      SET discord_webhook_url = ?, discord_channel_info_id = ?, updated_at = ?
+      WHERE subscription_group_id = ?
+    `).run(discordWebhookUrl, discordChannelInfoId ?? null, now, subscriptionGroupId);
+
+    return ok(result.changes);
+  } catch (error) {
+    return err(appErrorFromException(
+      error,
+      ErrorCodes.DB_QUERY_ERROR,
+      "Failed to update webhook URL for subscription group"
+    ));
+  }
+}
+
+/**
  * Gets discord webhook by ID.
  */
 export function getDiscordWebhookById(
