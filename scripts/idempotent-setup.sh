@@ -217,6 +217,10 @@ else
     exit 1
 fi
 
+
+log_info "Archiving old logs..."
+pnpm logs:archive
+
 # =============================================================================
 # Step 7: Start or restart services with PM2
 # =============================================================================
@@ -244,9 +248,6 @@ pm2 start ecosystem.config.cjs
 pm2 save --force
 
 log_info "✓ PM2 services configured"
-
-log_info "Archiving old logs..."
-pnpm logs:archive
 
 # =============================================================================
 # Final status

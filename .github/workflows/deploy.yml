@@ -235,9 +235,6 @@ jobs:
           if [ -n "$TELEGRAM_SESSION" ]; then
             echo "Creating Telegram session file from GitHub secret..."
             
-            # Ensure the python-scraper directory exists
-            mkdir -p apps/python-scraper
-            
             # Write the session file content
             echo "$TELEGRAM_SESSION" > session
             
