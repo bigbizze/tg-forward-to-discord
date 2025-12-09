@@ -33,11 +33,11 @@ jobs:
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
+      
       - name: Deploy to Hetzner Cloud
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -56,18 +56,32 @@ jobs:
             echo "Date: $(date)"
             echo ""
             
-            # Navigate to project directory
-            cd /opt/tg-discord || {
-              echo "Error: /opt/tg-discord directory not found"
-              echo "This should have been created by cloud-init"
-              exit 1
-            }
+            # Ensure project directory exists
+            mkdir -p /opt/tg-discord
+            cd /opt/tg-discord
             
-            # Check if this is first deployment (no .git directory)
+            # Check if git repository is initialized
             if [ ! -d ".git" ]; then
               echo "=== First deployment detected ==="
-              echo "Cloning repository..."
-              git clone https://github.com/${{ github.repository }} .
+              echo "Initializing git repository..."
+              
+              # Check if directory has files (besides .cloud-init-complete)
+              FILE_COUNT=$(find . -maxdepth 1 -not -name '.cloud-init-complete' -not -name '.' -not -name '..' | wc -l)
+              
+              if [ "$FILE_COUNT" -gt 0 ]; then
+                echo "Directory not empty, cleaning up non-critical files..."
+                # Keep only .cloud-init-complete
+                find . -maxdepth 1 -not -name '.cloud-init-complete' -not -name '.' -not -name '..' -exec rm -rf {} +
+              fi
+              
+              # Initialize git and fetch
+              git init
+              git remote add origin https://github.com/${{ github.repository }}
+              git fetch origin
+              git checkout -b ${{ github.ref_name }}
+              git reset --hard origin/${{ github.ref_name }}
+              
+              echo "✓ Repository cloned successfully"
               
               # Check if .env exists
               if [ ! -f ".env" ]; then
@@ -78,6 +92,8 @@ jobs:
                 echo "1. SSH into the server: ssh -i ssh_key root@${{ secrets.SSH_HOST }}"
                 echo "2. Navigate to: cd /opt/tg-discord"
                 echo "3. Create .env file with your credentials"
+                echo "   You can copy from: cp .env.example .env"
+                echo "   Then edit: nano .env"
                 echo "4. Push a new commit or re-run this workflow"
                 echo ""
                 exit 1
@@ -89,13 +105,25 @@ jobs:
             # Fetch and reset to latest
             echo "Fetching latest code..."
             git fetch origin
+            
+            # Store old commit for comparison
+            OLD_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "none")
+            
+            # Reset to latest
             git reset --hard origin/${{ github.ref_name }}
             
             # Show what changed
+            NEW_COMMIT=$(git rev-parse HEAD)
             echo ""
-            echo "Current commit: $(git rev-parse --short HEAD)"
+            echo "Commit: $(git rev-parse --short HEAD)"
+            
+            if [ "$OLD_COMMIT" != "$NEW_COMMIT" ] && [ "$OLD_COMMIT" != "none" ]; then
+              echo "Changes:"
+              git log --oneline --no-decorate $OLD_COMMIT..$NEW_COMMIT || echo "  (showing latest commit only)"
+            fi
+            
             echo "Latest commit message:"
-            git log -1 --pretty=format:"%s" | head -n 1
+            git log -1 --pretty=format:"%s"
             echo ""
             echo ""
             
