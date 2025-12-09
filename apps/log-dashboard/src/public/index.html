@@ -344,6 +344,11 @@
       // Strip all ANSI codes first
       const cleanText = stripAnsi(text);
 
+      // Skip lines that are just the process prefix with no content (e.g., "0|express- | ")
+      if (/^\d+\|[^\|]+\s*\|\s*$/.test(cleanText)) {
+        return null;
+      }
+
       // Parse PM2 log format: "0|process-name | 2025-12-09T00:42:10: message"
       const pm2Match = cleanText.match(/^(\d+\|[^\|]+)\s*\|\s*(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}):\s*(.*)$/);
 
@@ -358,6 +363,18 @@
         }
 
         return `<span class="log-datetime">${escapeHtml(datetime)}</span> <span class="process-name ${colorClass}">${escapeHtml(processName)}</span> :: <span class="log-message">${escapeHtml(message)}</span>`;
+      }
+
+      // Handle standalone datetime lines (continuation from PM2 split): "2025-12-09T00:42:10: message"
+      const standaloneMatch = cleanText.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}):\s*(.*)$/);
+      if (standaloneMatch) {
+        const [, datetime, message] = standaloneMatch;
+
+        if (!message || !message.trim()) {
+          return null;
+        }
+
+        return `<span class="log-datetime">${escapeHtml(datetime)}</span> <span class="process-name process-0">unknown</span> :: <span class="log-message">${escapeHtml(message)}</span>`;
       }
 
       // Fallback: skip if empty, otherwise show as log message
