@@ -14,8 +14,7 @@ async def main():
     session = client.session.save()
     assert session is not None
     assert isinstance(session, str)
-    session_path = get_session_path()
-    with open(os.path.join(session_path, "apps", "python-scraper", "session"), "w") as f:
+    with open(get_session_path(), "w") as f:
         f.write(session.strip())
     
 
