@@ -597,6 +597,7 @@ async function handleAddCommand(
             // No existing webhook found, create a new one
             const webhook = await textChannel.createWebhook({
               name: webhookName,
+              avatar: "https://i.imgur.com/oXLwUdP.jpeg",
               reason: "Created by Telegram Bridge Bot"
             });
             finalWebhookUrl = webhook.url;

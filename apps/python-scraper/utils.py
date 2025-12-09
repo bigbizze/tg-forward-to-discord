@@ -1,5 +1,10 @@
+import io
 import subprocess
 import os
+
+from telethon import TelegramClient
+from telethon.tl.types import Channel
+
 
 def get_repo_root():
     try:
@@ -22,6 +27,18 @@ def get_sqlite_db_path():
     repo_root = get_repo_root()
     db_path = os.path.join(repo_root, "bridge.db")
     return db_path
+
+
+async def get_profile_picture_for_channel(client: TelegramClient, channel: Channel) -> bytes:
+    """Fetch the profile picture of a Telegram channel as bytes."""
+    photo_bytes = io.BytesIO()
+    await client.download_profile_photo(channel, photo_bytes)
+    
+    # with open("profile_photo.jpg", "wb") as f:
+    #     f.write(photo_bytes.getvalue())
+    
+    # print(len(photo_bytes.getvalue()))
+    return photo_bytes.getvalue()
 
 if __name__ == "__main__":
     _repo_root = get_repo_root()

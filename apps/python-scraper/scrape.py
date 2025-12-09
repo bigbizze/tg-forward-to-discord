@@ -156,6 +156,27 @@ class Database:
             self._connection.close()
             self._connection = None
     
+    def get_active_subscribed_channel_for_id(self, channel_id: int) -> Result:
+        """
+        TODO: Add a way to refresh for a channel after adding it
+        Get all telegram channels that have active webhook subscriptions.
+        Returns channel records with their telegram_id and telegram_url.
+        """
+        try:
+            conn = self._get_connection()
+            cursor = conn.execute("""
+                SELECT DISTINCT tc.id, tc.telegram_id, tc.telegram_url, tc.telegram_username
+                FROM telegram_channel tc
+                INNER JOIN discord_webhook dw ON dw.telegram_channel_id = tc.id
+                WHERE dw.is_active = 1 AND tc.id = ?
+            """, (channel_id,))
+            rows = cursor.fetchone()
+            if len(rows) != 1:
+                return Ok(None)
+            return Ok(dict(rows[0]))
+        except Exception as e:
+            return Err(str(e), "DB_QUERY_ERROR")
+        
     def get_active_subscribed_channels(self) -> Result:
         """
         Get all telegram channels that have active webhook subscriptions.
@@ -704,7 +725,7 @@ class TelegramScraper:
         for channel_info in channels:
             await self._catch_up_channel(channel_info)
     
-    async def _catch_up_channel(self, channel_info: Dict[str, Any]):
+    async def _catch_up_channel(self, channel_info: Dict[str, Any], offset_mins: int = 5):
         """
         Catch up a single channel by fetching messages newer than the cursor.
         Fetches newest first, then reverses to send in chronological order.
@@ -760,7 +781,7 @@ class TelegramScraper:
         offset_date = None
         if not has_cursor:
             offset_date = datetime.now(timezone.utc)
-            cutoff_time = offset_date - timedelta(minutes=5)
+            cutoff_time = offset_date - timedelta(minutes=offset_mins)
             print(f"Catching up channel {telegram_url} (id={telegram_id}, no cursor - last 5 min only)")
         else:
             print(f"Catching up channel {telegram_url} (id={telegram_id}, min_id={min_id})")
