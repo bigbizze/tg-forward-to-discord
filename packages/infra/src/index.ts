@@ -34,11 +34,6 @@ const serverType = process.env.HCLOUD_SERVER_TYPE!;
 const serverImage = process.env.HCLOUD_IMAGE!;
 const serverLocation = process.env.HCLOUD_LOCATION!;
 
-// Additional allowed IPs for SSH access (comma-separated)
-const allowedIps = process.env.HCLOUD_ALLOWED_IPS
-  ? process.env.HCLOUD_ALLOWED_IPS.split(",").map(ip => ip.trim() + "/32")
-  : [];
-
 const PROJECT_NAME = "tg-discord-bridge";
 
 // =============================================================================
@@ -58,18 +53,11 @@ const hcloudSshKey = new hcloud.SshKey(`${PROJECT_NAME}-key`, {
 // Firewall (Optional: Restrict SSH to GitHub Actions IPs)
 // =============================================================================
 
-// GitHub Actions IP ranges from api.github.com/meta
-const GITHUB_ACTIONS_IPS = [
-  // Main GitHub Actions ranges
-  "4.148.0.0/16",
-  "4.149.0.0/18",
-  "4.151.0.0/16",
-  "4.152.0.0/15",
-  "20.20.0.0/16",
-  "20.29.0.0/17",
-  "20.51.0.0/16",
-  // Additional allowed IPs from environment (your personal IP, etc.)
-  ...allowedIps
+// SSH is secured by key authentication, so we allow from anywhere
+// This avoids issues with GitHub Actions' dynamic IP ranges
+const SSH_ALLOWED_IPS = [
+  "0.0.0.0/0",
+  "::/0"
 ];
 
 const firewall = new hcloud.Firewall(`${PROJECT_NAME}-firewall`, {
@@ -80,7 +68,7 @@ const firewall = new hcloud.Firewall(`${PROJECT_NAME}-firewall`, {
       direction: "in",
       protocol: "tcp",
       port: "22",
-      sourceIps: GITHUB_ACTIONS_IPS
+      sourceIps: SSH_ALLOWED_IPS
     },
     // HTTP - allow from anywhere for log dashboard
     {

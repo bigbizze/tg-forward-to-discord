@@ -9,6 +9,7 @@ The system uses a hybrid approach with three main components:
 1. **Express Server** - HTTP API for message processing, configuration management, and centralized logging
 2. **Discord Bot** - Slash command interface for managing subscriptions
 3. **Python Scraper** - Telegram client that listens for messages and polls for missed ones
+4. **Log Dashboard** - Web-based PM2 log viewer with real-time streaming
 
 ### Message Flow
 
@@ -37,6 +38,9 @@ Discord Channels
 - **Rate limiting** to respect Discord's API limits
 - **Centralized logging** with optional Discord webhook notifications
 - **Soft deletes** for subscriptions (can be reactivated)
+- **Infrastructure as Code** using Pulumi for Hetzner Cloud deployment
+- **Web-based log viewer** with real-time PM2 log streaming
+- **Webhook reuse** to avoid hitting Discord's 15 webhook limit per channel
 
 ## Getting Started
 
@@ -104,12 +108,14 @@ tg-discord/
 ├── apps/
 │   ├── discord-bot/          # Discord slash command bot
 │   ├── express-server/       # HTTP API server
+│   ├── log-dashboard/        # Web-based PM2 log viewer
 │   └── python-scraper/       # Telegram scraper
 ├── packages/
 │   ├── config/               # Environment configuration (Zod schemas)
 │   ├── db/                   # Database queries and connection
 │   ├── db-setup/             # Idempotent schema setup
 │   ├── discord-webhook/      # Discord webhook utilities with rate limiting
+│   ├── infra/                # Pulumi infrastructure (Hetzner Cloud)
 │   ├── result/               # Result<T, E> type utilities
 │   └── shared-types/         # Zod schemas for API contracts
 ├── scripts/
@@ -117,7 +123,8 @@ tg-discord/
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml        # GitHub Actions deployment
-├── ecosystem.config.cjs      # PM2 process configuration
+├── ecosystem.config.cjs      # PM2 process configuration (production)
+├── ecosystem.dev.config.cjs  # PM2 process configuration (development)
 └── package.json              # Root workspace configuration
 ```
 
@@ -182,17 +189,45 @@ Health check endpoint (no auth required).
 | `DISCORD_BOT_TOKEN` | Discord bot token | Yes |
 | `DISCORD_CLIENT_ID` | Discord application client ID | Yes |
 | `LOGGING_DISCORD_WEBHOOK_URL` | Webhook for error notifications | No |
+| `HTML_LOG_VIEWER_TOKEN` | Token for log dashboard authentication | Yes |
 | `DEFAULT_CRON` | Polling schedule | No (default: */10 * * * *) |
 
+#### Infrastructure (Hetzner Cloud)
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `HCLOUD_TOKEN` | Hetzner Cloud API token | Yes (for infra) |
+| `HCLOUD_SERVER_TYPE` | Server type | No (default: cx22) |
+| `HCLOUD_IMAGE` | OS image | No (default: ubuntu-22.04) |
+| `HCLOUD_LOCATION` | Datacenter location | No (default: hel1) |
+
 ## Deployment
+
+### Infrastructure Setup (Hetzner Cloud)
+
+The project uses Pulumi for infrastructure management. To provision a new server:
+
+```bash
+# Navigate to infra package
+cd packages/infra
+
+# Preview changes
+pulumi preview
+
+# Deploy infrastructure
+pnpm pulumi:up
+
+# Get SSH key and server IP for GitHub Actions
+pnpm config:ssh-key
+```
+
+The `config:ssh-key` script will output the values needed for GitHub Actions secrets.
 
 ### Using GitHub Actions
 
 1. Set up the following secrets in your GitHub repository:
-   - `SSH_HOST` - Server IP address
-   - `SSH_USER` - SSH username
-   - `SSH_PRIVATE_KEY` - SSH private key
-   - `SSH_PORT` - SSH port (optional, defaults to 22)
+   - `SSH_HOST` - Server IP address (from `pulumi stack output serverIp`)
+   - `SSH_PRIVATE_KEY` - SSH private key (from `pulumi stack output sshPrivateKey --show-secrets`)
 
 2. Push to the `master` or `main` branch to trigger deployment.
 
@@ -250,11 +285,14 @@ The `join_tg_msgs_forwarded_to_discord` table ensures exactly-once delivery:
 
 ```bash
 pnpm build          # Build all packages
-pnpm dev            # Run all services in watch mode
-pnpm dev:ts         # Run only TypeScript services
+pnpm dev            # Run all services in watch mode (using concurrently)
+pnpm dev:pm2        # Run all services in watch mode (using PM2)
+pnpm dev:only:ts    # Run only TypeScript services
+pnpm dev:only:python # Run only Python scraper
 pnpm lint           # Lint all packages
 pnpm typecheck      # Type check all packages
-pnpm build:db       # Set up/migrate database
+pnpm dev:setup:db   # Set up/migrate database
+pnpm logs:archive   # Archive current logs to logs/old/
 ```
 
 ### Adding a New Package
