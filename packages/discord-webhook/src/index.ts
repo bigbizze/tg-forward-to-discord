@@ -11,7 +11,7 @@
  * This package uses the 'limiter' npm package to enforce these limits.
  */
 
-import { default as Limiter } from "limiter";
+import * as limiter from "limiter";
 import retry from "async-retry";
 import {
   type Result,
@@ -23,7 +23,9 @@ import {
 } from "@tg-discord/result";
 import type { DiscordWebhookMessage, TelegramMessage } from "@tg-discord/shared-types";
 
-type RateLimiter = Limiter.RateLimiter;
+const Limiter = limiter.RateLimiter;
+type RateLimiter = limiter.RateLimiter;
+
 /**
  * Rate limiter instances per webhook URL.
  * Each webhook has its own limiter to handle limits correctly.
@@ -40,7 +42,7 @@ function getRateLimiter(webhookUrl: string): RateLimiter {
   if (!limiter) {
     // Conservative limit: 25 per minute (Discord allows ~30)
     // This gives us headroom for retries and other operations
-    limiter = new Limiter.RateLimiter({
+    limiter = new Limiter({
       tokensPerInterval: 25,
       interval: "minute"
     });
