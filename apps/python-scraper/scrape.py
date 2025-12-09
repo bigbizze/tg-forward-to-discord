@@ -44,7 +44,7 @@ from telethon.tl.types import Channel, Message
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from utils import get_repo_root, get_session_path
+from utils import get_repo_root, get_session_path, get_sqlite_db_path
 
 # Load environment variables from .env file
 load_dotenv()
@@ -73,7 +73,7 @@ class Config:
         post_msg_path = os.getenv('PROCESSOR_SERVER_POST_MSG_PATH', 'process')
         log_path = os.getenv('PROCESSOR_SERVER_LOG_PATH', 'log')
         token = os.getenv('PROCESSOR_SERVER_TOKEN')
-        sqlite_path = f"../../{os.getenv('SQLITE_PATH', 'bridge.db')}"
+        sqlite_path = get_sqlite_db_path()
         default_cron = os.getenv('DEFAULT_CRON', '*/10 * * * *')
         
         # Validate required fields

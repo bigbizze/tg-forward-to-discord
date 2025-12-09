@@ -18,9 +18,17 @@ def get_session_path():
     session_path = os.path.join(repo_root, "session")
     return session_path
 
+def get_sqlite_db_path():
+    repo_root = get_repo_root()
+    db_path = os.path.join(repo_root, "bridge.db")
+    return db_path
+
 if __name__ == "__main__":
     _repo_root = get_repo_root()
     _session_path = os.path.join(_repo_root, "session")
     __session_path = get_session_path()
     assert _session_path == __session_path
     print(_session_path, os.path.exists(_session_path))
+    
+    sqlite_path = get_sqlite_db_path()
+    print(sqlite_path, os.path.exists(sqlite_path))

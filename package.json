@@ -23,7 +23,7 @@
     "kill-proc": "chmod +x scripts/kill-proc.sh && ./scripts/kill-proc.sh",
     "infra:setup": "pnpm -F @tg-discord/infra up",
     "logs:delete": "rm -f logs/*output.log && rm -f logs/*error.log",
-    "logs:archive": "mkdir -p logs/old && for f in logs/*.log; do [ -f \"$f\" ] && mv \"$f\" \"logs/old/$(date +%s%3N).$(basename \"$f\")\"; done"
+    "logs:archive": "mkdir -p logs/old && for f in logs/*.log; do [ -f \"$f\" ] && mv \"$f\" \"logs/old/$(date +%s%3N).$(basename \"$f\")\"; done || true"
   },
   "dependencies": {
     "app-root-path": "^3.1.0"
