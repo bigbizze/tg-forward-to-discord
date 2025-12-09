@@ -564,18 +564,43 @@ async function handleAddCommand(
       return;
     }
 
-    // If no webhook URL provided, we need to create one
+    // If no webhook URL provided, we need to find or create one
     let finalWebhookUrl = webhookUrl;
     if (!finalWebhookUrl) {
-      // Try to create a webhook for this channel
+      const webhookName = `Telegram Bridge - ${groupId}`;
       try {
         const textChannel = await interaction.guild?.channels.fetch(channel.id);
         if (textChannel && textChannel.type === ChannelType.GuildText) {
-          const webhook = await textChannel.createWebhook({
-            name: `Telegram Bridge - ${groupId}`,
-            reason: "Created by Telegram Bridge Bot"
-          });
-          finalWebhookUrl = webhook.url;
+          // First, check for existing webhooks with the same name
+          const existingWebhooks = await textChannel.fetchWebhooks();
+          const matchingWebhooks = existingWebhooks.filter(wh => wh.name === webhookName);
+
+          if (matchingWebhooks.size > 0) {
+            // Sort by createdAt (oldest first) and keep the oldest one
+            const sortedWebhooks = [ ...matchingWebhooks.values() ].sort(
+              (a, b) => (a.createdTimestamp ?? 0) - (b.createdTimestamp ?? 0)
+            );
+            const webhookToKeep = sortedWebhooks[0];
+            finalWebhookUrl = webhookToKeep.url;
+
+            // Delete duplicate webhooks (keep only the oldest)
+            if (sortedWebhooks.length > 1) {
+              for (const duplicateWebhook of sortedWebhooks.slice(1)) {
+                try {
+                  await duplicateWebhook.delete("Removing duplicate Telegram Bridge webhook");
+                } catch {
+                  // Ignore deletion errors
+                }
+              }
+            }
+          } else {
+            // No existing webhook found, create a new one
+            const webhook = await textChannel.createWebhook({
+              name: webhookName,
+              reason: "Created by Telegram Bridge Bot"
+            });
+            finalWebhookUrl = webhook.url;
+          }
         }
       } catch (webhookError) {
         await sendErrorLog(config, `Failed to create webhook: ${webhookError}`, {
