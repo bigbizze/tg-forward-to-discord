@@ -8,7 +8,7 @@
     "lint:fix": "echo 'Python linting not configured'",
     "dev": "pnpx nodemon --ext py --watch scrape.py --ignore scraper_session.session --ignore .venv --exec \".venv/bin/python3 -u scrape.py\"",
     "start": ". .venv/bin/activate && .venv/bin/python3 -u scrape.py",
-    "venv:create": ".venv/bin/python3 -m venv .venv",
+    "venv:create": "python3 -m venv .venv",
     "venv:install": ".venv/bin/pip3 install -r requirements.txt",
     "postinstall": "pnpm venv:create && pnpm venv:install"
   }
