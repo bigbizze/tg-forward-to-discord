@@ -1,19 +1,23 @@
 # GitHub Actions Deployment Workflow
 #
-# This workflow deploys the application to a remote server when code is pushed
+# This workflow deploys the application to Hetzner Cloud when code is pushed
 # to the master branch. It SSHs into the server and runs the idempotent setup
 # script.
 #
 # Required Secrets (configure in GitHub repo settings):
-# - SSH_HOST: Server IP address or hostname
-# - SSH_USER: SSH username (e.g., ubuntu)
-# - SSH_PRIVATE_KEY: SSH private key for authentication
-# - SSH_PORT: SSH port (optional, defaults to 22)
+# - SSH_HOST: Server IP address (get from: pulumi stack output serverIp)
+# - SSH_PRIVATE_KEY: SSH private key (get from: pulumi stack output sshPrivateKey --show-secrets)
 #
-# The server should have:
-# - The repository cloned at ~/tg-discord (or adjust the path below)
-# - SSH access configured with the provided key
-# - sudo access for package installation (first run only)
+# The server is provisioned by Pulumi with cloud-init which installs:
+# - Node.js v22, Python 3, pnpm, PM2
+# - Creates /opt/tg-discord directory
+# - Sets up PM2 systemd service
+#
+# On first deployment, this workflow will:
+# 1. Clone the repository to /opt/tg-discord
+# 2. Create .env file (exits with instructions)
+# 3. Wait for manual .env configuration
+# 4. Run setup script on next push
 
 name: Deploy
 
@@ -27,22 +31,25 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to Server
+    name: Deploy to Production
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Deploy via SSH
+
+      - name: Deploy to Hetzner Cloud
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
+          username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
+          port: 22
           script_stop: true
+          command_timeout: 30m
           script: |
+            set -e
+            
             echo "=== Starting deployment ==="
             echo "Server: $(hostname)"
             echo "User: $(whoami)"
@@ -50,23 +57,80 @@ jobs:
             echo ""
             
             # Navigate to project directory
-            cd ~/tg-discord || {
-              echo "Error: Project directory not found at ~/tg-discord"
-              echo "Please clone the repository first:"
-              echo "  git clone <repo-url> ~/tg-discord"
+            cd /opt/tg-discord || {
+              echo "Error: /opt/tg-discord directory not found"
+              echo "This should have been created by cloud-init"
               exit 1
             }
             
+            # Check if this is first deployment (no .git directory)
+            if [ ! -d ".git" ]; then
+              echo "=== First deployment detected ==="
+              echo "Cloning repository..."
+              git clone https://github.com/${{ github.repository }} .
+              
+              # Check if .env exists
+              if [ ! -f ".env" ]; then
+                echo ""
+                echo "⚠️  IMPORTANT: .env file not found!"
+                echo ""
+                echo "Next steps:"
+                echo "1. SSH into the server: ssh -i ssh_key root@${{ secrets.SSH_HOST }}"
+                echo "2. Navigate to: cd /opt/tg-discord"
+                echo "3. Create .env file with your credentials"
+                echo "4. Push a new commit or re-run this workflow"
+                echo ""
+                exit 1
+              fi
+            else
+              echo "=== Updating existing deployment ==="
+            fi
+            
+            # Fetch and reset to latest
+            echo "Fetching latest code..."
+            git fetch origin
+            git reset --hard origin/${{ github.ref_name }}
+            
+            # Show what changed
+            echo ""
+            echo "Current commit: $(git rev-parse --short HEAD)"
+            echo "Latest commit message:"
+            git log -1 --pretty=format:"%s" | head -n 1
+            echo ""
+            echo ""
+            
             # Run the idempotent setup script
             echo "Running setup script..."
+            chmod +x scripts/idempotent-setup.sh
             ./scripts/idempotent-setup.sh
             
             echo ""
             echo "=== Deployment complete ==="
+            echo ""
+            echo "View logs with: pm2 logs"
+            echo "Check status with: pm2 status"
+
+      - name: Deployment Summary
+        if: success()
+        run: |
+          echo "✅ Deployment successful!"
+          echo ""
+          echo "Server: ${{ secrets.SSH_HOST }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo ""
+          echo "View application logs:"
+          echo "  ssh -i ssh_key root@${{ secrets.SSH_HOST }} 'pm2 logs'"
 
       - name: Notify on failure
         if: failure()
         run: |
-          echo "Deployment failed!"
-          echo "Check the logs above for details."
+          echo "❌ Deployment failed!"
+          echo ""
+          echo "Troubleshooting steps:"
+          echo "1. Check the logs above for error details"
+          echo "2. SSH into server: ssh -i ssh_key root@${{ secrets.SSH_HOST }}"
+          echo "3. Check PM2 logs: pm2 logs"
+          echo "4. Check PM2 status: pm2 status"
+          echo "5. Manual restart: cd /opt/tg-discord && ./scripts/idempotent-setup.sh"
           exit 1

@@ -25,8 +25,8 @@
   ],
   "sideEffects": false,
   "dependencies": {
-    "app-root-path": "^3.1.0",
     "@tg-discord/result": "workspace:*",
+    "app-root-path": "^3.1.0",
     "dotenv": "^17.2.3",
     "zod": "^3.23.0"
   }

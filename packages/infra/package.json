@@ -1,0 +1,30 @@
+{
+  "name": "@tg-discord/infra",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "pulumi:up": "tsgo -b && PULUMI_CONFIG_PASSPHRASE=\"\" pulumi up --stack production",
+    "clean": "rm -rf bin/ dist tsconfig.tsbuildinfo",
+    "typecheck": "tsgo --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.26",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@pulumi/hcloud": "^1.29.0",
+    "@pulumi/pulumi": "^3.210.0",
+    "@pulumi/tls": "^5.2.3",
+    "app-root-path": "^3.1.0",
+    "dotenv": "^17.2.3"
+  }
+}
