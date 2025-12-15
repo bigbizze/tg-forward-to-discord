@@ -143,13 +143,12 @@ class Database:
     def _get_connection(self) -> sqlite3.Connection:
         """Get or create a database connection."""
         if self._connection is None:
-            self._connection = sqlite3.connect(self.path)
+            # timeout=30 sets busy_timeout to 30 seconds for lock contention
+            self._connection = sqlite3.connect(self.path, timeout=30.0)
             self._connection.row_factory = sqlite3.Row
             # Enable WAL mode for concurrent access
             self._connection.execute("PRAGMA journal_mode=WAL")
             self._connection.execute("PRAGMA foreign_keys=ON")
-            # Set busy timeout to wait up to 30 seconds for locks to clear
-            self._connection.execute("PRAGMA busy_timeout=30000")
         return self._connection
     
     def close(self):
