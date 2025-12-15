@@ -1,3 +1,5 @@
+// noinspection JSUnusedLocalSymbols
+
 /**
  * Process Route Handler
  *
@@ -35,7 +37,6 @@ import {
   deactivateDiscordWebhookById,
   updateMsgCursor
 } from "@tg-discord/db";
-import { getConfig, getLogUrl } from "@tg-discord/config";
 import { postToDiscordWebhook, formatTelegramMessageForDiscord } from "@tg-discord/discord-webhook";
 import type { AppError } from "@tg-discord/result";
 
@@ -48,33 +49,33 @@ async function sendErrorLog(
   context: string,
   details?: Record<string, unknown>
 ): Promise<void> {
-  const body = JSON.stringify({
-    logType: "error",
-    message: error instanceof Error ? error.message : error.message,
-    timestamp: new Date().toISOString(),
-    details: {
-      context,
-      errorCode: "code" in error ? error.code : "UNKNOWN",
-      ...details
-    }
-  }, null, 2);
-  console.error("(process.ts sendErrorLog) Error: ", body);
-  const config = getConfig();
-  const logUrl = getLogUrl(config);
-
-  try {
-    await fetch(logUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${config.PROCESSOR_SERVER_TOKEN}`
-      },
-      body: body
-    });
-  } catch (logError) {
-    // Don't let logging errors break the main flow
-    console.error("Failed to send error log:", logError);
-  }
+  // const body = JSON.stringify({
+  //   logType: "error",
+  //   message: error instanceof Error ? error.message : error.message,
+  //   timestamp: new Date().toISOString(),
+  //   details: {
+  //     context,
+  //     errorCode: "code" in error ? error.code : "UNKNOWN",
+  //     ...details
+  //   }
+  // }, null, 2);
+  // console.error("(process.ts sendErrorLog) Error: ", body);
+  // const config = getConfig();
+  // const logUrl = getLogUrl(config);
+  //
+  // try {
+  //   await fetch(logUrl, {
+  //     method: "POST",
+  //     headers: {
+  //       "Content-Type": "application/json",
+  //       "Authorization": `Bearer ${config.PROCESSOR_SERVER_TOKEN}`
+  //     },
+  //     body: body
+  //   });
+  // } catch (logError) {
+  //   // Don't let logging errors break the main flow
+  //   console.error("Failed to send error log:", logError);
+  // }
 }
 
 /**

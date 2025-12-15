@@ -12,6 +12,7 @@
  */
 
 import * as limiter from "limiter";
+type RateLimiter = limiter.RateLimiter;
 import retry from "async-retry";
 import {
   type Result,
@@ -26,7 +27,6 @@ import type { DiscordWebhookMessage, TelegramMessage } from "@tg-discord/shared-
 
 export const lineSeparator = "-# ~~---------------------~~";
 
-type RateLimiter = limiter.RateLimiter;
 
 /**
  * Rate limiter instances per webhook URL.

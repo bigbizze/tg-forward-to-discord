@@ -386,27 +386,28 @@ class HttpClient:
         message: str,
         details: Optional[Dict[str, Any]] = None
     ) -> Result:
-        """Send a log message to the Express server."""
-        try:
-            session = await self._get_session()
-            
-            payload = {
-                'logType': log_type,
-                'message': message,
-                'timestamp': datetime.now(timezone.utc).isoformat(),
-                'details': details or {}
-            }
-            
-            async with session.post(self.config.log_url, json=payload) as response:
-                if response.status == 200:
-                    return Ok(None)
-                else:
-                    return Err(f"Log request failed with status {response.status}", "HTTP_ERROR")
-                    
-        except Exception as e:
-            # Don't let logging errors crash the scraper
-            print(f"Failed to send log: {e}", file=sys.stderr)
-            return Err(str(e), "LOG_ERROR")
+        pass    
+        # """Send a log message to the Express server."""
+        # try:
+        #     session = await self._get_session()
+        #
+        #     payload = {
+        #         'logType': log_type,
+        #         'message': message,
+        #         'timestamp': datetime.now(timezone.utc).isoformat(),
+        #         'details': details or {}
+        #     }
+        #
+        #     async with session.post(self.config.log_url, json=payload) as response:
+        #         if response.status == 200:
+        #             return Ok(None)
+        #         else:
+        #             return Err(f"Log request failed with status {response.status}", "HTTP_ERROR")
+        #
+        # except Exception as e:
+        #     # Don't let logging errors crash the scraper
+        #     print(f"Failed to send log: {e}", file=sys.stderr)
+        #     return Err(str(e), "LOG_ERROR")
 
 
 # =============================================================================
