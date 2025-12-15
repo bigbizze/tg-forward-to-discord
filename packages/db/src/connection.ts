@@ -38,10 +38,14 @@ export function getConnection(): Result<Database.Database, AppError> {
     // Enable WAL mode for better concurrent access
     // WAL allows readers to not block writers and vice versa
     db.pragma("journal_mode = WAL");
-    
+
     // Enable foreign key enforcement
     db.pragma("foreign_keys = ON");
-    
+
+    // Set busy timeout to wait up to 30 seconds for locks to clear
+    // This prevents "database is locked" errors during concurrent writes
+    db.pragma("busy_timeout = 30000");
+
     // Improve performance for our use case
     db.pragma("synchronous = NORMAL");
     db.pragma("cache_size = 10000");

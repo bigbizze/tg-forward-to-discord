@@ -148,6 +148,8 @@ class Database:
             # Enable WAL mode for concurrent access
             self._connection.execute("PRAGMA journal_mode=WAL")
             self._connection.execute("PRAGMA foreign_keys=ON")
+            # Set busy timeout to wait up to 30 seconds for locks to clear
+            self._connection.execute("PRAGMA busy_timeout=30000")
         return self._connection
     
     def close(self):
