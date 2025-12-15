@@ -741,11 +741,12 @@ class TelegramScraper:
         for channel_info in channels:
             await self._catch_up_channel(channel_info)
     
-    async def _catch_up_channel(self, channel_info: Dict[str, Any], offset_mins: int = 5):
+    async def _catch_up_channel(self, channel_info: Dict[str, Any], offset_mins: int = 60):
         """
         Catch up a single channel by fetching messages newer than the cursor.
         Fetches newest first, then reverses to send in chronological order.
-        If no cursor exists, only fetches messages from the last 5 minutes.
+        Always limits to messages from the last offset_mins (default 1 hour),
+        regardless of cursor position.
         """
         channel_id = channel_info.get('id')
         telegram_id = channel_info.get('telegram_id')
@@ -793,14 +794,14 @@ class TelegramScraper:
                 {'channel_id': channel_id, 'telegram_url': telegram_url}
             )
 
-        # If no cursor, only get messages from the last 5 minutes
-        offset_date = None
-        if not has_cursor:
-            offset_date = datetime.now(timezone.utc)
-            cutoff_time = offset_date - timedelta(minutes=offset_mins)
-            print(f"Catching up channel {telegram_url} (id={telegram_id}, no cursor - last 5 min only)")
+        # Always limit to messages from the last offset_mins, regardless of cursor
+        offset_date = datetime.now(timezone.utc)
+        cutoff_time = offset_date - timedelta(minutes=offset_mins)
+
+        if has_cursor:
+            print(f"Catching up channel {telegram_url} (id={telegram_id}, min_id={min_id}, last {offset_mins} min)")
         else:
-            print(f"Catching up channel {telegram_url} (id={telegram_id}, min_id={min_id})")
+            print(f"Catching up channel {telegram_url} (id={telegram_id}, no cursor, last {offset_mins} min)")
 
         # Extract username from URL to use with Telethon
         # Telethon needs either a username or a resolved entity, not just the numeric ID
@@ -817,8 +818,8 @@ class TelegramScraper:
                 offset_date=offset_date,
                 reverse=False  # Newest first (default)
             ):
-                # If no cursor, stop when we hit messages older than 5 minutes
-                if not has_cursor and message.date < cutoff_time:
+                # Stop when we hit messages older than the cutoff time
+                if message.date < cutoff_time:
                     break
 
                 messages.append(serialize_message(message))
