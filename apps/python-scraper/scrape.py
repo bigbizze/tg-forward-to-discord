@@ -222,6 +222,19 @@ class Database:
         """Update a telegram channel record with new telegram_id and/or username."""
         try:
             conn = self._get_connection()
+
+            # Check if this telegram_id already exists on a different channel
+            existing = conn.execute("""
+                SELECT id FROM telegram_channel
+                WHERE telegram_id = ? AND id != ?
+            """, (external_telegram_id, telegram_channel_id)).fetchone()
+
+            if existing:
+                # telegram_id already exists on another channel - this is a duplicate entry
+                # Skip the update to avoid UNIQUE constraint violation
+                print(f"  Warning: telegram_id {external_telegram_id} already exists on channel {existing['id']}, skipping update for channel {telegram_channel_id}")
+                return Ok(None)
+
             now = datetime.now(timezone.utc).isoformat()
             conn.execute("""
                 UPDATE telegram_channel
